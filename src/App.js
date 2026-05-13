@@ -3,11 +3,14 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Principal from './pages/Principal';
+import TrocarSenha from './pages/TrocarSenha';
 
 function RotaProtegida({ children }) {
   const { usuario, carregando } = useAuth();
   if (carregando) return <div style={{ color: '#fff', textAlign: 'center', marginTop: 100 }}>Carregando...</div>;
-  return usuario ? children : <Navigate to="/login" />;
+  if (!usuario) return <Navigate to="/login" />;
+  if (usuario.primeiro_acesso) return <Navigate to="/trocar-senha" />;
+  return children;
 }
 
 function App() {
@@ -16,6 +19,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/trocar-senha" element={<TrocarSenha />} />
           <Route path="/" element={
             <RotaProtegida>
               <Principal />
