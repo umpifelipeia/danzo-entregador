@@ -14,14 +14,7 @@ export default function Principal() {
   useEffect(() => {
     buscarPedidos();
     const intervalo = setInterval(buscarPedidos, 15000);
-    iniciarGps();
-    return () => {
-      clearInterval(intervalo);
-      pararGps();
-    };
-  }, []);
 
-  function iniciarGps() {
     if (!navigator.geolocation) return;
     gpsRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
@@ -37,14 +30,16 @@ export default function Principal() {
       (err) => console.error('Erro GPS:', err.message),
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
     );
-  }
 
-  function pararGps() {
-    if (gpsRef.current !== null) {
-      navigator.geolocation.clearWatch(gpsRef.current);
-      gpsRef.current = null;
-    }
-  }
+    return () => {
+      clearInterval(intervalo);
+      if (gpsRef.current !== null) {
+        navigator.geolocation.clearWatch(gpsRef.current);
+        gpsRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function buscarPedidos() {
     try {
