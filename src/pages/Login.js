@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
-  const [lojaId, setLojaId] = useState('');
+  const [whatsappLoja, setWhatsappLoja] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -18,7 +18,7 @@ export default function Login() {
     setErro('');
     setCarregando(true);
     try {
-      const usuario = await login(whatsapp, senha, lojaId);
+      const usuario = await login(whatsapp, senha, whatsappLoja);
       if (usuario.tipo !== 'entregador') {
         setErro('Acesso permitido apenas para entregadores.');
         return;
@@ -40,15 +40,15 @@ export default function Login() {
 
         <form onSubmit={handleLogin} style={styles.form}>
           <div style={styles.campo}>
-            <label style={styles.label}>Código da Loja</label>
-            <input
-              type="text"
-              value={lojaId}
-              onChange={(e) => setLojaId(e.target.value)}
-              style={styles.input}
-              placeholder="Informe o código da loja"
-              required
-            />
+            <label style={styles.label}>WhatsApp da Loja</label>
+<input
+  type="tel"
+  value={whatsappLoja}
+  onChange={(e) => setWhatsappLoja(e.target.value)}
+  style={styles.input}
+  placeholder="11999999999"
+  required
+/>
           </div>
 
           <div style={styles.campo}>

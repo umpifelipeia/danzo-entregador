@@ -17,8 +17,8 @@ export function AuthProvider({ children }) {
     setCarregando(false);
   }, []);
 
-  async function login(whatsapp, senha, lojaId) {
-  const { data } = await api.post('/auth/entregador/login', { whatsapp, senha, loja_id: lojaId });
+  async function login(whatsapp, senha, whatsappLoja) {
+  const { data } = await api.post('/auth/entregador/login', { whatsapp, senha, whatsapp_loja: whatsappLoja });
   localStorage.setItem('token', data.token);
   localStorage.setItem('usuario', JSON.stringify(data.usuario));
   setUsuario(data.usuario);
