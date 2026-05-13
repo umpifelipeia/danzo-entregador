@@ -1,5 +1,5 @@
 // src/pages/Principal.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
@@ -9,12 +9,42 @@ export default function Principal() {
   const [pedidos, setPedidos] = useState([]);
   const [emRota, setEmRota] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const gpsRef = useRef(null);
 
   useEffect(() => {
     buscarPedidos();
     const intervalo = setInterval(buscarPedidos, 15000);
-    return () => clearInterval(intervalo);
+    iniciarGps();
+    return () => {
+      clearInterval(intervalo);
+      pararGps();
+    };
   }, []);
+
+  function iniciarGps() {
+    if (!navigator.geolocation) return;
+    gpsRef.current = navigator.geolocation.watchPosition(
+      async (pos) => {
+        try {
+          await api.patch(`/entregadores/${usuario.id}/gps`, {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
+        } catch (err) {
+          console.error('Erro ao enviar GPS:', err.message);
+        }
+      },
+      (err) => console.error('Erro GPS:', err.message),
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+    );
+  }
+
+  function pararGps() {
+    if (gpsRef.current !== null) {
+      navigator.geolocation.clearWatch(gpsRef.current);
+      gpsRef.current = null;
+    }
+  }
 
   async function buscarPedidos() {
     try {
@@ -56,7 +86,7 @@ export default function Principal() {
     }
   }
 
-  async function abrirRota(endereco) {
+  function abrirRota(endereco) {
     const enc = encodeURIComponent(endereco);
     window.open(`https://www.google.com/maps/search/?api=1&query=${enc}`, '_blank');
   }
@@ -121,16 +151,10 @@ export default function Principal() {
 
               {emRota && (
                 <div style={styles.botoes}>
-                  <button
-                    onClick={() => abrirRota(pedido.endereco_entrega)}
-                    style={styles.botaoMapa}
-                  >
+                  <button onClick={() => abrirRota(pedido.endereco_entrega)} style={styles.botaoMapa}>
                     🗺️ Abrir Rota
                   </button>
-                  <button
-                    onClick={() => confirmarEntrega(pedido.id)}
-                    style={styles.botaoConfirmar}
-                  >
+                  <button onClick={() => confirmarEntrega(pedido.id)} style={styles.botaoConfirmar}>
                     ✅ Confirmar Entrega
                   </button>
                 </div>

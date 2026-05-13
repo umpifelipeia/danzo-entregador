@@ -17,13 +17,13 @@ export function AuthProvider({ children }) {
     setCarregando(false);
   }, []);
 
-  async function login(email, senha) {
-    const { data } = await api.post('/auth/login', { email, senha });
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('usuario', JSON.stringify(data.usuario));
-    setUsuario(data.usuario);
-    return data.usuario;
-  }
+  async function login(whatsapp, senha, lojaId) {
+  const { data } = await api.post('/auth/entregador/login', { whatsapp, senha, loja_id: lojaId });
+  localStorage.setItem('token', data.token);
+  localStorage.setItem('usuario', JSON.stringify(data.usuario));
+  setUsuario(data.usuario);
+  return data.usuario;
+}
 
   function logout() {
     localStorage.removeItem('token');

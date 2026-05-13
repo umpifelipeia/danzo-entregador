@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [lojaId, setLojaId] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState('');
@@ -17,7 +18,7 @@ export default function Login() {
     setErro('');
     setCarregando(true);
     try {
-      const usuario = await login(email, senha);
+      const usuario = await login(whatsapp, senha, lojaId);
       if (usuario.tipo !== 'entregador') {
         setErro('Acesso permitido apenas para entregadores.');
         return;
@@ -39,13 +40,25 @@ export default function Login() {
 
         <form onSubmit={handleLogin} style={styles.form}>
           <div style={styles.campo}>
-            <label style={styles.label}>E-mail</label>
+            <label style={styles.label}>Código da Loja</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={lojaId}
+              onChange={(e) => setLojaId(e.target.value)}
               style={styles.input}
-              placeholder="seu@email.com"
+              placeholder="Informe o código da loja"
+              required
+            />
+          </div>
+
+          <div style={styles.campo}>
+            <label style={styles.label}>WhatsApp</label>
+            <input
+              type="tel"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+              style={styles.input}
+              placeholder="11999999999"
               required
             />
           </div>
