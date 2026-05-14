@@ -163,7 +163,7 @@ setPedidos(listaPorDistancia);
           <Row label="👤 Cliente" val={pedidoDetalhe.cliente_nome} />
           <Row label="📍 Endereço" val={pedidoDetalhe.endereco_entrega} />
           <Row label="💳 Pagamento" val={pedidoDetalhe.forma_pagamento} />
-          {pedidoDetalhe.troco && <Row label="💵 Troco para" val={`R$ ${Number(pedidoDetalhe.troco).toFixed(2)}`} />}
+          {pedidoDetalhe.troco && <Row label="💵 Troco para" val={pedidoDetalhe.troco} />}
           {pedidoDetalhe.observacoes && <Row label="📝 Obs" val={pedidoDetalhe.observacoes} />}
           <Row label="💰 Total" val={`R$ ${Number(pedidoDetalhe.total).toFixed(2)}`} destaque />
         </div>
@@ -276,7 +276,7 @@ function CardPedido({ pedido, onClick, onMaps, onWaze, onConfirmar, cor }) {
         <p style={{ color: '#ccc', fontSize: 13, margin: '2px 0' }}>👤 {pedido.cliente_nome}</p>
         <p style={{ color: '#fff', fontSize: 13, margin: '2px 0', fontWeight: 500 }}>📍 {pedido.endereco_entrega}</p>
         <p style={{ color: '#aaa', fontSize: 12, margin: '2px 0' }}>
-          💳 {pedido.forma_pagamento}{pedido.troco ? ` — Troco para R$ ${Number(pedido.troco).toFixed(2)}` : ''}
+          💳 {pedido.forma_pagamento}{pedido.troco ? ` — Troco para ${pedido.troco}` : ''}
         </p>
         <p style={{ color: cor, fontSize: 11, textAlign: 'right', margin: '6px 0 0' }}>Ver detalhes →</p>
       </div>
