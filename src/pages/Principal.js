@@ -36,10 +36,23 @@ export default function Principal() {
   const [confirmando, setConfirmando] = useState(false);
   const [gpsAtual, setGpsAtual] = useState(null);
   const gpsRef = useRef(null);
+  const [online, setOnline] = useState(navigator.onLine);
+  const [obsConfirmacao, setObsConfirmacao] = useState('');
+  const [mostrarObs, setMostrarObs] = useState(false);
+  const [pedidoConfirmando, setPedidoConfirmando] = useState(null);
 
   useEffect(() => {
     buscarPedidos();
     const intervalo = setInterval(buscarPedidos, 15000);
+
+    function aoFicarOnline() {
+      setOnline(true);
+      processarFilaOffline();
+      buscarPedidos();
+    }
+    function aoFicarOffline() { setOnline(false); }
+    window.addEventListener('online', aoFicarOnline);
+    window.addEventListener('offline', aoFicarOffline);
 
     if (!navigator.geolocation) return;
     gpsRef.current = navigator.geolocation.watchPosition(
@@ -60,6 +73,8 @@ export default function Principal() {
 
     return () => {
       clearInterval(intervalo);
+      window.removeEventListener('online', aoFicarOnline);
+      window.removeEventListener('offline', aoFicarOffline);
       if (gpsRef.current !== null) {
         navigator.geolocation.clearWatch(gpsRef.current);
         gpsRef.current = null;
@@ -129,6 +144,53 @@ setPedidos(listaPorDistancia);
     }
   }
 
+  async function processarFilaOffline() {
+    try {
+      const fila = JSON.parse(localStorage.getItem('danzo_fila_offline') || '[]');
+      if (fila.length === 0) return;
+      const restante = [];
+      for (const item of fila) {
+        try {
+          await api.post(`/entregadores/confirmar-entrega/${item.pedidoId}`, { observacao: item.obs });
+        } catch {
+          restante.push(item);
+        }
+      }
+      localStorage.setItem('danzo_fila_offline', JSON.stringify(restante));
+      if (restante.length < fila.length) buscarPedidos();
+    } catch {}
+  }
+
+  async function confirmarEntrega(pedidoId, obs = '') {
+    if (!navigator.onLine) {
+      const fila = JSON.parse(localStorage.getItem('danzo_fila_offline') || '[]');
+      fila.push({ pedidoId, obs, at: new Date().toISOString() });
+      localStorage.setItem('danzo_fila_offline', JSON.stringify(fila));
+      setPedidos(prev => prev.filter(p => p.id !== pedidoId));
+      setPedidoDetalhe(null);
+      setMostrarObs(false);
+      setObsConfirmacao('');
+      alert('Sem conexão. Confirmação salva e será enviada ao reconectar.');
+      return;
+    }
+    try {
+      setConfirmando(true);
+      await api.post(`/entregadores/confirmar-entrega/${pedidoId}`, { observacao: obs });
+      setPedidoDetalhe(null);
+      setMostrarObs(false);
+      setObsConfirmacao('');
+      buscarPedidos();
+    } catch {
+      alert('Erro ao confirmar entrega.');
+    } finally {
+      setConfirmando(false);
+    }
+  }
+
+  function abrirOSM(endereco) {
+    window.open(`https://www.openstreetmap.org/search?query=${encodeURIComponent(endereco)}`, '_blank');
+  }
+
   function abrirMaps(endereco) {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`, '_blank');
   }
@@ -149,6 +211,11 @@ setPedidos(listaPorDistancia);
     const itens = pedidoDetalhe.itens_pedido || [];
     return (
       <div style={s.container}>
+        {!online && (
+          <div style={{ background: '#E8611A', color: '#fff', textAlign: 'center', padding: '8px', fontSize: 13, fontWeight: 600 }}>
+            📡 Sem conexão — modo offline
+          </div>
+        )}
         <div style={s.header}>
           <button onClick={() => setPedidoDetalhe(null)} style={s.btnVoltar}>← Voltar</button>
           <button onClick={logout} style={s.sair}>Sair</button>
@@ -183,6 +250,7 @@ setPedidos(listaPorDistancia);
         <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
           <button onClick={() => abrirMaps(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1 }}>🗺️ Maps</button>
           <button onClick={() => abrirWaze(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1, borderColor: '#00AAFF', color: '#00AAFF' }}>🚗 Waze</button>
+          <button onClick={() => abrirOSM(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1, borderColor: '#22c55e', color: '#22c55e' }}>🌍 OSM</button>
         </div>
 
         {pedidoDetalhe.status === 'entregador_atribuido' && (
@@ -191,9 +259,30 @@ setPedidos(listaPorDistancia);
           </button>
         )}
         {pedidoDetalhe.status === 'em_rota' && (
-          <button onClick={() => confirmarEntrega(pedidoDetalhe.id)} disabled={confirmando} style={{ ...s.botaoPrimario, marginTop: 10, background: confirmando ? '#555' : '#22c55e' }}>
-            {confirmando ? 'Confirmando...' : '✅ Confirmar Entrega'}
-          </button>
+          <div style={{ marginTop: 10 }}>
+            {!mostrarObs ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button onClick={() => confirmarEntrega(pedidoDetalhe.id)} disabled={confirmando}
+                  style={{ ...s.botaoPrimario, background: confirmando ? '#555' : '#22c55e', marginBottom: 0 }}>
+                  {confirmando ? 'Confirmando...' : '✅ Confirmar Entrega'}
+                </button>
+                <button onClick={() => setMostrarObs(true)}
+                  style={{ width: '100%', padding: 10, background: 'none', border: '1px solid #444', borderRadius: 8, color: '#888', fontSize: 13, cursor: 'pointer' }}>
+                  + Adicionar observação
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <textarea value={obsConfirmacao} onChange={e => setObsConfirmacao(e.target.value)}
+                  placeholder="Observação opcional (ex: deixei na portaria)"
+                  style={{ width: '100%', padding: 12, background: '#1a1d27', border: '1px solid #333', borderRadius: 8, color: '#fff', fontSize: 13, resize: 'none', height: 80, boxSizing: 'border-box' }} />
+                <button onClick={() => confirmarEntrega(pedidoDetalhe.id, obsConfirmacao)} disabled={confirmando}
+                  style={{ ...s.botaoPrimario, background: confirmando ? '#555' : '#22c55e', marginBottom: 0 }}>
+                  {confirmando ? 'Confirmando...' : '✅ Confirmar Entrega'}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     );
@@ -202,6 +291,11 @@ setPedidos(listaPorDistancia);
   // Tela principal
   return (
     <div style={s.container}>
+        {!online && (
+          <div style={{ background: '#E8611A', color: '#fff', textAlign: 'center', padding: '8px', fontSize: 13, fontWeight: 600 }}>
+            📡 Sem conexão — modo offline
+          </div>
+        )}
       <div style={s.header}>
         <div>
           <p style={s.saudacao}>Olá, {usuario?.nome?.split(' ')[0]}! 👋</p>
@@ -237,7 +331,7 @@ setPedidos(listaPorDistancia);
                 </button>
               )}
               {pedidosAguardando.map(p => (
-                <CardPedido key={p.id} pedido={p} onClick={() => abrirDetalhe(p)} onMaps={() => abrirMaps(p.endereco_entrega)} onWaze={() => abrirWaze(p.endereco_entrega)} cor="#E8A000" />
+                <CardPedido key={p.id} pedido={p} onClick={() => abrirDetalhe(p)} onMaps={() => abrirMaps(p.endereco_entrega)} onWaze={() => abrirWaze(p.endereco_entrega)} onOsm={() => abrirOSM(p.endereco_entrega)} cor="#E8A000" />
               ))}
             </div>
           )}
@@ -246,7 +340,7 @@ setPedidos(listaPorDistancia);
             <div>
               <p style={s.secaoTitulo}>🛵 Em rota</p>
               {pedidosEmRota.map(p => (
-                <CardPedido key={p.id} pedido={p} onClick={() => abrirDetalhe(p)} onMaps={() => abrirMaps(p.endereco_entrega)} onWaze={() => abrirWaze(p.endereco_entrega)} onConfirmar={() => confirmarEntrega(p.id)} cor="#1AABCF" />
+                <CardPedido key={p.id} pedido={p} onClick={() => abrirDetalhe(p)} onMaps={() => abrirMaps(p.endereco_entrega)} onWaze={() => abrirWaze(p.endereco_entrega)} onOsm={() => abrirOSM(p.endereco_entrega)} onConfirmar={() => confirmarEntrega(p.id)} cor="#1AABCF" />
               ))}
             </div>
           )}
@@ -265,7 +359,7 @@ function Row({ label, val, destaque }) {
   );
 }
 
-function CardPedido({ pedido, onClick, onMaps, onWaze, onConfirmar, cor }) {
+function CardPedido({ pedido, onClick, onMaps, onWaze, onOsm, onConfirmar, cor }) {
   return (
     <div style={{ background: '#1a1d27', borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `4px solid ${cor}` }}>
       <div onClick={onClick} style={{ cursor: 'pointer', marginBottom: 10 }}>
@@ -281,8 +375,9 @@ function CardPedido({ pedido, onClick, onMaps, onWaze, onConfirmar, cor }) {
         <p style={{ color: cor, fontSize: 11, textAlign: 'right', margin: '6px 0 0' }}>Ver detalhes →</p>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={onMaps} style={{ flex: 1, padding: '10px 0', background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗺️ Maps</button>
+       <button onClick={onMaps} style={{ flex: 1, padding: '10px 0', background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗺️ Maps</button>
         <button onClick={onWaze} style={{ flex: 1, padding: '10px 0', background: '#1a2035', color: '#00AAFF', border: '1px solid #00AAFF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🚗 Waze</button>
+        <button onClick={onOsm} style={{ flex: 1, padding: '10px 0', background: '#1a2a1a', color: '#22c55e', border: '1px solid #22c55e', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🌍 OSM</button>
         {onConfirmar && (
           <button onClick={onConfirmar} style={{ flex: 2, padding: '10px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✅ Confirmar</button>
         )}
