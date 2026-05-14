@@ -39,7 +39,7 @@ export default function Principal() {
   const [online, setOnline] = useState(navigator.onLine);
   const [obsConfirmacao, setObsConfirmacao] = useState('');
   const [mostrarObs, setMostrarObs] = useState(false);
-  const [pedidoConfirmando, setPedidoConfirmando] = useState(null);
+  
 
   useEffect(() => {
     buscarPedidos();
@@ -128,19 +128,6 @@ setPedidos(listaPorDistancia);
       if (pedidoDetalhe) setPedidoDetalhe(p => ({ ...p, status: 'em_rota' }));
     } catch {
       alert('Erro ao iniciar entregas.');
-    }
-  }
-
-  async function confirmarEntrega(pedidoId) {
-    try {
-      setConfirmando(true);
-      await api.post(`/entregadores/confirmar-entrega/${pedidoId}`);
-      setPedidoDetalhe(null);
-      buscarPedidos();
-    } catch {
-      alert('Erro ao confirmar entrega.');
-    } finally {
-      setConfirmando(false);
     }
   }
 
