@@ -141,7 +141,7 @@ setPedidos(listaPorDistancia);
     setPedidoDetalhe(pedido);
   }
 
-  const pedidosAguardando = pedidos.filter(p => p.status === 'pedido_pronto');
+  const pedidosAguardando = pedidos.filter(p => p.status === 'entregador_atribuido');
   const pedidosEmRota = pedidos.filter(p => p.status === 'em_rota');
 
   // Tela de detalhe
@@ -156,7 +156,7 @@ setPedidos(listaPorDistancia);
 
         <p style={s.titulo}>Pedido #{pedidoDetalhe.numero}</p>
         <span style={{ ...s.badge, background: pedidoDetalhe.status === 'em_rota' ? '#1AABCF' : '#E8A000' }}>
-          {pedidoDetalhe.status === 'em_rota' ? '🛵 Em rota' : '⏳ Aguardando início'}
+          {pedidoDetalhe.status === 'em_rota' ? '🛵 Em rota' : '⏳ Aguardando início da rota'}
         </span>
 
         <div style={s.card}>
@@ -185,7 +185,7 @@ setPedidos(listaPorDistancia);
           <button onClick={() => abrirWaze(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1, borderColor: '#00AAFF', color: '#00AAFF' }}>🚗 Waze</button>
         </div>
 
-        {pedidoDetalhe.status === 'pedido_pronto' && (
+        {pedidoDetalhe.status === 'entregador_atribuido' && (
           <button onClick={iniciarEntregas} style={{ ...s.botaoPrimario, marginTop: 10 }}>
             🛵 Iniciar Rota
           </button>
