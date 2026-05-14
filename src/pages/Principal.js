@@ -72,7 +72,8 @@ export default function Principal() {
     try {
       const { data } = await api.get('/entregadores/meus-pedidos');
       const lista = data.pedidos || [];
-      setPedidos(lista);
+      const listaPorDistancia = await ordenarPorDistancia(lista);
+setPedidos(listaPorDistancia);
       setEmRota(data.em_rota || false);
     } catch (err) {
       console.error('Erro ao buscar pedidos:', err.message);
