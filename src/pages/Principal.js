@@ -2,6 +2,30 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
+const NOMINATIM = 'https://nominatim.openstreetmap.org';
+const OSRM = 'https://router.project-osrm.org';
+
+async function geocodificar(endereco) {
+  try {
+    const res = await fetch(`${NOMINATIM}/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`, {
+      headers: { 'User-Agent': 'DanzoEntregador/1.0' }
+    });
+    const data = await res.json();
+    if (data?.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+  } catch {}
+  return null;
+}
+
+async function calcularDistancia(origemLat, origemLon, destinoLat, destinoLon) {
+  try {
+    const url = `${OSRM}/route/v1/driving/${origemLon},${origemLat};${destinoLon},${destinoLat}?overview=false`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.code === 'Ok') return data.routes[0].distance / 1000;
+  } catch {}
+  return 9999;
+}
+
 export default function Principal() {
   const { usuario, logout } = useAuth();
   const [disponivel, setDisponivel] = useState(true);
@@ -10,6 +34,7 @@ export default function Principal() {
   const [carregando, setCarregando] = useState(true);
   const [pedidoDetalhe, setPedidoDetalhe] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
+  const [gpsAtual, setGpsAtual] = useState(null);
   const gpsRef = useRef(null);
 
   useEffect(() => {
@@ -19,10 +44,11 @@ export default function Principal() {
     if (!navigator.geolocation) return;
     gpsRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
+        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        setGpsAtual(coords);
         try {
           await api.patch(`/entregadores/${usuario.id}/gps`, {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
+            lat: coords.lat, lng: coords.lon,
           });
         } catch (err) {
           console.error('Erro ao enviar GPS:', err.message);
@@ -45,13 +71,28 @@ export default function Principal() {
   async function buscarPedidos() {
     try {
       const { data } = await api.get('/entregadores/meus-pedidos');
-      setPedidos(data.pedidos || []);
+      const lista = data.pedidos || [];
+      setPedidos(lista);
       setEmRota(data.em_rota || false);
     } catch (err) {
       console.error('Erro ao buscar pedidos:', err.message);
     } finally {
       setCarregando(false);
     }
+  }
+
+  async function ordenarPorDistancia(lista) {
+    if (!gpsAtual || lista.length <= 1) return lista;
+    const comDistancia = await Promise.all(lista.map(async p => {
+      if (!p.endereco_entrega || p.endereco_entrega === 'Endereço não informado') {
+        return { ...p, distancia: 9999 };
+      }
+      const coords = await geocodificar(p.endereco_entrega);
+      if (!coords) return { ...p, distancia: 9999 };
+      const dist = await calcularDistancia(gpsAtual.lat, gpsAtual.lon, coords.lat, coords.lon);
+      return { ...p, distancia: dist };
+    }));
+    return comDistancia.sort((a, b) => a.distancia - b.distancia);
   }
 
   async function alternarDisponibilidade() {
@@ -68,6 +109,7 @@ export default function Principal() {
       await api.post('/entregadores/iniciar-rota');
       setEmRota(true);
       buscarPedidos();
+      if (pedidoDetalhe) setPedidoDetalhe(p => ({ ...p, status: 'em_rota' }));
     } catch {
       alert('Erro ao iniciar entregas.');
     }
@@ -86,127 +128,124 @@ export default function Principal() {
     }
   }
 
-  function abrirRota(endereco) {
-    const enc = encodeURIComponent(endereco);
-    window.open(`https://www.google.com/maps/search/?api=1&query=${enc}`, '_blank');
+  function abrirMaps(endereco) {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`, '_blank');
+  }
+
+  function abrirWaze(endereco) {
+    window.open(`https://waze.com/ul?q=${encodeURIComponent(endereco)}&navigate=yes`, '_blank');
+  }
+
+  async function abrirDetalhe(pedido) {
+    setPedidoDetalhe(pedido);
   }
 
   const pedidosAguardando = pedidos.filter(p => p.status === 'pedido_pronto');
   const pedidosEmRota = pedidos.filter(p => p.status === 'em_rota');
 
+  // Tela de detalhe
   if (pedidoDetalhe) {
+    const itens = pedidoDetalhe.itens_pedido || [];
     return (
-      <div style={styles.container}>
-        <div style={styles.header}>
-          <button onClick={() => setPedidoDetalhe(null)} style={styles.btnVoltar}>← Voltar</button>
-          <p style={styles.saudacao}>Pedido #{pedidoDetalhe.numero}</p>
+      <div style={s.container}>
+        <div style={s.header}>
+          <button onClick={() => setPedidoDetalhe(null)} style={s.btnVoltar}>← Voltar</button>
+          <button onClick={logout} style={s.sair}>Sair</button>
         </div>
 
-        <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <span style={styles.numeroPedido}>#{pedidoDetalhe.numero}</span>
-            <span style={{ ...styles.badge, background: pedidoDetalhe.status === 'em_rota' ? '#1AABCF' : '#E8A000' }}>
-              {pedidoDetalhe.status === 'em_rota' ? 'Em rota' : 'Aguardando início'}
-            </span>
+        <p style={s.titulo}>Pedido #{pedidoDetalhe.numero}</p>
+        <span style={{ ...s.badge, background: pedidoDetalhe.status === 'em_rota' ? '#1AABCF' : '#E8A000' }}>
+          {pedidoDetalhe.status === 'em_rota' ? '🛵 Em rota' : '⏳ Aguardando início'}
+        </span>
+
+        <div style={s.card}>
+          <Row label="👤 Cliente" val={pedidoDetalhe.cliente_nome} />
+          <Row label="📍 Endereço" val={pedidoDetalhe.endereco_entrega} />
+          <Row label="💳 Pagamento" val={pedidoDetalhe.forma_pagamento} />
+          {pedidoDetalhe.troco && <Row label="💵 Troco para" val={`R$ ${Number(pedidoDetalhe.troco).toFixed(2)}`} />}
+          {pedidoDetalhe.observacoes && <Row label="📝 Obs" val={pedidoDetalhe.observacoes} />}
+          <Row label="💰 Total" val={`R$ ${Number(pedidoDetalhe.total).toFixed(2)}`} destaque />
+        </div>
+
+        {itens.length > 0 && (
+          <div style={s.card}>
+            <p style={s.secaoTitulo}>🛒 Itens do pedido</p>
+            {itens.map((item, i) => (
+              <div key={i} style={s.itemRow}>
+                <span style={s.itemNome}>{item.quantidade}x {item.nome_produto}{item.nome_variacao ? ` (${item.nome_variacao})` : ''}</span>
+                <span style={s.itemVal}>R$ {Number(item.subtotal).toFixed(2)}</span>
+              </div>
+            ))}
           </div>
+        )}
 
-          <div style={styles.infoRow}><span style={styles.infoLabel}>👤 Cliente</span><span style={styles.infoVal}>{pedidoDetalhe.cliente_nome}</span></div>
-          <div style={styles.infoRow}><span style={styles.infoLabel}>📍 Endereço</span><span style={styles.infoVal}>{pedidoDetalhe.endereco_entrega}</span></div>
-          <div style={styles.infoRow}><span style={styles.infoLabel}>💳 Pagamento</span><span style={styles.infoVal}>{pedidoDetalhe.forma_pagamento}</span></div>
-          {pedidoDetalhe.troco && (
-            <div style={styles.infoRow}><span style={styles.infoLabel}>💵 Troco para</span><span style={styles.infoVal}>R$ {Number(pedidoDetalhe.troco).toFixed(2)}</span></div>
-          )}
-          {pedidoDetalhe.observacoes && (
-            <div style={styles.infoRow}><span style={styles.infoLabel}>📝 Obs</span><span style={styles.infoVal}>{pedidoDetalhe.observacoes}</span></div>
-          )}
-          <div style={styles.infoRow}><span style={styles.infoLabel}>💰 Total</span><span style={{ ...styles.infoVal, color: '#E8611A', fontWeight: 700 }}>R$ {Number(pedidoDetalhe.total).toFixed(2)}</span></div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+          <button onClick={() => abrirMaps(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1 }}>🗺️ Maps</button>
+          <button onClick={() => abrirWaze(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1, borderColor: '#00AAFF', color: '#00AAFF' }}>🚗 Waze</button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
-          {pedidoDetalhe.endereco_entrega && pedidoDetalhe.endereco_entrega !== 'Endereço não informado' && (
-            <button onClick={() => abrirRota(pedidoDetalhe.endereco_entrega)} style={styles.botaoMapa}>
-              🗺️ Abrir Rota no Maps
-            </button>
-          )}
-          {pedidoDetalhe.status === 'em_rota' && (
-            <button onClick={() => confirmarEntrega(pedidoDetalhe.id)} disabled={confirmando} style={styles.botaoConfirmar}>
-              {confirmando ? 'Confirmando...' : '✅ Confirmar Entrega'}
-            </button>
-          )}
-        </div>
+        {pedidoDetalhe.status === 'pedido_pronto' && (
+          <button onClick={iniciarEntregas} style={{ ...s.botaoPrimario, marginTop: 10 }}>
+            🛵 Iniciar Rota
+          </button>
+        )}
+        {pedidoDetalhe.status === 'em_rota' && (
+          <button onClick={() => confirmarEntrega(pedidoDetalhe.id)} disabled={confirmando} style={{ ...s.botaoPrimario, marginTop: 10, background: confirmando ? '#555' : '#22c55e' }}>
+            {confirmando ? 'Confirmando...' : '✅ Confirmar Entrega'}
+          </button>
+        )}
       </div>
     );
   }
 
+  // Tela principal
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
+    <div style={s.container}>
+      <div style={s.header}>
         <div>
-          <p style={styles.saudacao}>Olá, {usuario?.nome?.split(' ')[0]}! 👋</p>
-          <p style={styles.subheader}>{emRota ? '🛵 Em rota de entrega' : 'Aguardando pedidos'}</p>
+          <p style={s.saudacao}>Olá, {usuario?.nome?.split(' ')[0]}! 👋</p>
+          <p style={s.subheader}>{emRota ? '🛵 Em rota de entrega' : 'Aguardando pedidos'}</p>
         </div>
-        <button onClick={logout} style={styles.sair}>Sair</button>
+        <button onClick={logout} style={s.sair}>Sair</button>
       </div>
 
-      {/* Toggle disponibilidade */}
-      <div style={styles.toggleCard}>
-        <span style={styles.toggleLabel}>{disponivel ? '🟢 Disponível' : '🔴 Indisponível'}</span>
-        <div onClick={alternarDisponibilidade} style={{ ...styles.toggle, background: disponivel ? '#1AABCF' : '#444' }}>
-          <div style={{ ...styles.toggleBolinha, marginLeft: disponivel ? 22 : 2 }} />
+      <div style={s.toggleCard}>
+        <span style={s.toggleLabel}>{disponivel ? '🟢 Disponível' : '🔴 Indisponível'}</span>
+        <div onClick={alternarDisponibilidade} style={{ ...s.toggle, background: disponivel ? '#1AABCF' : '#444' }}>
+          <div style={{ ...s.toggleBolinha, marginLeft: disponivel ? 22 : 2 }} />
         </div>
       </div>
 
       {carregando ? (
-        <p style={styles.aviso}>Carregando...</p>
+        <p style={s.aviso}>Carregando...</p>
       ) : pedidos.length === 0 ? (
-        <div style={styles.semPedidos}>
-          <p style={styles.emoji}>📦</p>
-          <p style={styles.aviso}>Nenhum pedido atribuído no momento.</p>
-          <p style={styles.avisoSub}>Aguarde, avisaremos quando chegar!</p>
-          <button onClick={buscarPedidos} style={styles.botaoSecundario}>Atualizar</button>
+        <div style={{ textAlign: 'center', marginTop: 60 }}>
+          <p style={{ fontSize: 48, margin: 0 }}>📦</p>
+          <p style={s.aviso}>Nenhum pedido atribuído no momento.</p>
+          <p style={{ color: '#666', fontSize: 13 }}>Aguarde, avisaremos quando chegar!</p>
+          <button onClick={buscarPedidos} style={s.botaoSec}>Atualizar</button>
         </div>
       ) : (
         <div>
-          {/* Pedidos aguardando iniciar rota */}
           {pedidosAguardando.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <p style={styles.secaoTitulo}>⏳ Aguardando iniciar rota ({pedidosAguardando.length})</p>
+              <p style={s.secaoTitulo}>⏳ Aguardando iniciar rota</p>
               {!emRota && (
-                <button onClick={iniciarEntregas} style={styles.botaoPrimario}>
+                <button onClick={iniciarEntregas} style={s.botaoPrimario}>
                   🛵 Iniciar Entregas ({pedidosAguardando.length} pedido{pedidosAguardando.length > 1 ? 's' : ''})
                 </button>
               )}
-              {pedidosAguardando.map(pedido => (
-                <div key={pedido.id} style={{ ...styles.card, borderLeft: '4px solid #E8A000' }} onClick={() => setPedidoDetalhe(pedido)}>
-                  <div style={styles.cardHeader}>
-                    <span style={styles.numeroPedido}>#{pedido.numero}</span>
-                    <span style={styles.valor}>R$ {Number(pedido.total).toFixed(2)}</span>
-                  </div>
-                  <p style={styles.cliente}>👤 {pedido.cliente_nome}</p>
-                  <p style={styles.endereco}>📍 {pedido.endereco_entrega}</p>
-                  <p style={styles.pagamento}>💳 {pedido.forma_pagamento}{pedido.troco ? ` — Troco para R$ ${Number(pedido.troco).toFixed(2)}` : ''}</p>
-                  <p style={styles.verDetalhe}>Ver detalhes →</p>
-                </div>
+              {pedidosAguardando.map(p => (
+                <CardPedido key={p.id} pedido={p} onClick={() => abrirDetalhe(p)} onMaps={() => abrirMaps(p.endereco_entrega)} onWaze={() => abrirWaze(p.endereco_entrega)} cor="#E8A000" />
               ))}
             </div>
           )}
 
-          {/* Pedidos em rota */}
           {pedidosEmRota.length > 0 && (
             <div>
-              <p style={styles.secaoTitulo}>🛵 Em rota ({pedidosEmRota.length})</p>
-              {pedidosEmRota.map(pedido => (
-                <div key={pedido.id} style={{ ...styles.card, borderLeft: '4px solid #1AABCF' }} onClick={() => setPedidoDetalhe(pedido)}>
-                  <div style={styles.cardHeader}>
-                    <span style={styles.numeroPedido}>#{pedido.numero}</span>
-                    <span style={styles.valor}>R$ {Number(pedido.total).toFixed(2)}</span>
-                  </div>
-                  <p style={styles.cliente}>👤 {pedido.cliente_nome}</p>
-                  <p style={styles.endereco}>📍 {pedido.endereco_entrega}</p>
-                  <p style={styles.pagamento}>💳 {pedido.forma_pagamento}{pedido.troco ? ` — Troco para R$ ${Number(pedido.troco).toFixed(2)}` : ''}</p>
-                  <p style={styles.verDetalhe}>Ver detalhes e confirmar →</p>
-                </div>
+              <p style={s.secaoTitulo}>🛵 Em rota</p>
+              {pedidosEmRota.map(p => (
+                <CardPedido key={p.id} pedido={p} onClick={() => abrirDetalhe(p)} onMaps={() => abrirMaps(p.endereco_entrega)} onWaze={() => abrirWaze(p.endereco_entrega)} onConfirmar={() => confirmarEntrega(p.id)} cor="#1AABCF" />
               ))}
             </div>
           )}
@@ -216,36 +255,61 @@ export default function Principal() {
   );
 }
 
-const styles = {
+function Row({ label, val, destaque }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #2a2d3a' }}>
+      <span style={{ color: '#888', fontSize: 13, minWidth: 110 }}>{label}</span>
+      <span style={{ color: destaque ? '#E8611A' : '#fff', fontSize: 13, textAlign: 'right', flex: 1, fontWeight: destaque ? 700 : 400 }}>{val}</span>
+    </div>
+  );
+}
+
+function CardPedido({ pedido, onClick, onMaps, onWaze, onConfirmar, cor }) {
+  return (
+    <div style={{ background: '#1a1d27', borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `4px solid ${cor}` }}>
+      <div onClick={onClick} style={{ cursor: 'pointer', marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ color: '#1AABCF', fontWeight: 700, fontSize: 16 }}>#{pedido.numero}</span>
+          <span style={{ color: '#E8611A', fontWeight: 700, fontSize: 16 }}>R$ {Number(pedido.total).toFixed(2)}</span>
+        </div>
+        <p style={{ color: '#ccc', fontSize: 13, margin: '2px 0' }}>👤 {pedido.cliente_nome}</p>
+        <p style={{ color: '#fff', fontSize: 13, margin: '2px 0', fontWeight: 500 }}>📍 {pedido.endereco_entrega}</p>
+        <p style={{ color: '#aaa', fontSize: 12, margin: '2px 0' }}>
+          💳 {pedido.forma_pagamento}{pedido.troco ? ` — Troco para R$ ${Number(pedido.troco).toFixed(2)}` : ''}
+        </p>
+        <p style={{ color: cor, fontSize: 11, textAlign: 'right', margin: '6px 0 0' }}>Ver detalhes →</p>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onMaps} style={{ flex: 1, padding: '10px 0', background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗺️ Maps</button>
+        <button onClick={onWaze} style={{ flex: 1, padding: '10px 0', background: '#1a2035', color: '#00AAFF', border: '1px solid #00AAFF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🚗 Waze</button>
+        {onConfirmar && (
+          <button onClick={onConfirmar} style={{ flex: 2, padding: '10px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✅ Confirmar</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const s = {
   container: { minHeight: '100vh', background: '#0f1117', padding: 20, color: '#fff', fontFamily: 'Inter, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   saudacao: { fontSize: 20, fontWeight: 700, color: '#1AABCF', margin: 0, fontFamily: 'Sora, sans-serif' },
   subheader: { fontSize: 13, color: '#888', margin: 0 },
   sair: { background: 'none', border: '1px solid #333', color: '#888', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  btnVoltar: { background: 'none', border: 'none', color: '#1AABCF', fontSize: 15, cursor: 'pointer', padding: 0, marginBottom: 8 },
+  btnVoltar: { background: 'none', border: 'none', color: '#1AABCF', fontSize: 15, cursor: 'pointer', padding: 0 },
+  titulo: { fontSize: 22, fontWeight: 700, color: '#fff', fontFamily: 'Sora, sans-serif', margin: '0 0 8px' },
+  badge: { fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, color: '#fff', display: 'inline-block', marginBottom: 16 },
   toggleCard: { background: '#1a1d27', borderRadius: 12, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   toggleLabel: { fontSize: 15, fontWeight: 600 },
   toggle: { width: 48, height: 26, borderRadius: 13, cursor: 'pointer', position: 'relative', transition: 'background 0.2s' },
   toggleBolinha: { width: 22, height: 22, background: '#fff', borderRadius: '50%', position: 'absolute', top: 2, transition: 'margin 0.2s' },
-  semPedidos: { textAlign: 'center', marginTop: 60 },
-  emoji: { fontSize: 48, margin: 0 },
-  aviso: { color: '#ccc', fontSize: 16 },
-  avisoSub: { color: '#666', fontSize: 13 },
-  secaoTitulo: { fontSize: 13, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
-  botaoPrimario: { width: '100%', padding: 16, background: '#1AABCF', color: '#fff', border: 'none', borderRadius: 12, fontSize: 16, fontWeight: 700, cursor: 'pointer', marginBottom: 12 },
-  botaoSecundario: { padding: '10px 24px', background: '#1a1d27', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
-  botaoMapa: { width: '100%', padding: 14, background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 600 },
-  botaoConfirmar: { width: '100%', padding: 16, background: '#1AABCF', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 700 },
-  card: { background: '#1a1d27', borderRadius: 12, padding: 18, marginBottom: 12, cursor: 'pointer', borderLeft: '4px solid transparent' },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: 8 },
-  numeroPedido: { color: '#1AABCF', fontWeight: 700, fontSize: 16 },
-  valor: { color: '#E8611A', fontWeight: 700, fontSize: 16 },
-  cliente: { color: '#ccc', fontSize: 14, margin: '4px 0' },
-  endereco: { color: '#fff', fontSize: 14, margin: '4px 0', fontWeight: 500 },
-  pagamento: { color: '#aaa', fontSize: 13, margin: '4px 0' },
-  verDetalhe: { color: '#1AABCF', fontSize: 12, margin: '8px 0 0', textAlign: 'right' },
-  badge: { fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, color: '#fff' },
-  infoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #2a2d3a' },
-  infoLabel: { color: '#888', fontSize: 13, minWidth: 110 },
-  infoVal: { color: '#fff', fontSize: 13, textAlign: 'right', flex: 1 },
+  aviso: { color: '#ccc', fontSize: 16, textAlign: 'center' },
+  secaoTitulo: { fontSize: 12, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
+  botaoPrimario: { width: '100%', padding: 16, background: '#1AABCF', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 },
+  botaoSec: { padding: '10px 24px', background: '#1a1d27', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
+  botaoNav: { padding: 12, background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  card: { background: '#1a1d27', borderRadius: 12, padding: 16, marginBottom: 12 },
+  itemRow: { display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #2a2d3a' },
+  itemNome: { color: '#ccc', fontSize: 13 },
+  itemVal: { color: '#fff', fontSize: 13, fontWeight: 600 },
 };
