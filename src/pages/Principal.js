@@ -213,12 +213,22 @@ setPedidos(listaPorDistancia);
         <div style={s.card} translate="no">
           <Row label="👤 Cliente" val={pedidoDetalhe.cliente_nome} />
           <Row label="📍 Endereço" val={pedidoDetalhe.endereco_entrega} />
-          <Row label="💳 Pagamento" val={pedidoDetalhe.forma_pagamento} />
-          {pedidoDetalhe.troco && <Row label="💵 Troco para" val={pedidoDetalhe.troco} />}
+          <Row
+            label="💳 Pagamento"
+            val={
+              pedidoDetalhe.forma_pagamento +
+              (pedidoDetalhe.troco_para
+                ? ` — R$ ${Number(pedidoDetalhe.troco_para).toFixed(2)}  troco: R$ ${Math.max(0, Number(pedidoDetalhe.troco_para) - Number(pedidoDetalhe.total)).toFixed(2)}`
+                : '')
+            }
+          />
+          {Number(pedidoDetalhe.taxa_entrega) > 0 ? (
+            <>
+              <Row label="🛒 Pedido" val={`R$ ${Math.max(0, Number(pedidoDetalhe.total) - Number(pedidoDetalhe.taxa_entrega)).toFixed(2)}`} />
+              <Row label="🛵 Frete" val={`R$ ${Number(pedidoDetalhe.taxa_entrega).toFixed(2)}`} />
+            </>
+          ) : null}
           {pedidoDetalhe.observacoes && <Row label="📝 Observação" val={pedidoDetalhe.observacoes} />}
-          {Number(pedidoDetalhe.taxa_entrega) > 0 && (
-            <Row label="🛵 Frete" val={`R$ ${Number(pedidoDetalhe.taxa_entrega).toFixed(2)}`} />
-          )}
           <Row label="💰 Total" val={`R$ ${Number(pedidoDetalhe.total).toFixed(2)}`} destaque />
         </div>
 
