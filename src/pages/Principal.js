@@ -60,7 +60,7 @@ export default function Principal() {
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         setGpsAtual(coords);
         try {
-          await api.patch(`/entregadores/${usuario.id}/gps`, {
+          await api.patch('/entregadores/meu-gps', {
             lat: coords.lat, lng: coords.lon,
           });
         } catch (err) {
