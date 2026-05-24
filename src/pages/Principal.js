@@ -204,12 +204,12 @@ setPedidos(listaPorDistancia);
           <button onClick={logout} style={s.sair}>Sair</button>
         </div>
 
-        <p style={s.titulo}>Pedido #{pedidoDetalhe.numero}</p>
+        <p style={s.titulo} translate="no">Pedido #{pedidoDetalhe.numero}</p>
         <span style={{ ...s.badge, background: pedidoDetalhe.status === 'em_rota' ? '#1AABCF' : '#E8A000' }}>
           {pedidoDetalhe.status === 'em_rota' ? '🛵 Em rota' : '⏳ Aguardando início da rota'}
         </span>
 
-        <div style={s.card}>
+        <div style={s.card} translate="no">
           <Row label="👤 Cliente" val={pedidoDetalhe.cliente_nome} />
           <Row label="📍 Endereço" val={pedidoDetalhe.endereco_entrega} />
           <Row label="💳 Pagamento" val={pedidoDetalhe.forma_pagamento} />
@@ -283,7 +283,7 @@ setPedidos(listaPorDistancia);
         )}
       <div style={s.header}>
         <div>
-          <p style={s.saudacao}>Olá, {usuario?.nome?.split(' ')[0]}! 👋</p>
+          <p style={s.saudacao} translate="no">Olá, {usuario?.nome?.split(' ')[0]}! 👋</p>
           <p style={s.subheader}>{emRota ? '🛵 Em rota de entrega' : 'Aguardando pedidos'}</p>
         </div>
         <button onClick={logout} style={s.sair}>Sair</button>
@@ -352,8 +352,8 @@ function CardPedido({ pedido, onClick, onMaps, onWaze, onConfirmar, cor }) {
           <span style={{ color: '#1AABCF', fontWeight: 700, fontSize: 16 }}>#{pedido.numero}</span>
           <span style={{ color: '#E8611A', fontWeight: 700, fontSize: 16 }}>R$ {Number(pedido.total).toFixed(2)}</span>
         </div>
-        <p style={{ color: '#ccc', fontSize: 13, margin: '2px 0' }}>👤 {pedido.cliente_nome}</p>
-        <p style={{ color: '#fff', fontSize: 13, margin: '2px 0', fontWeight: 500 }}>📍 {pedido.endereco_entrega}</p>
+        <p style={{ color: '#ccc', fontSize: 13, margin: '2px 0' }} translate="no">👤 {pedido.cliente_nome}</p>
+        <p style={{ color: '#fff', fontSize: 13, margin: '2px 0', fontWeight: 500 }} translate="no">📍 {pedido.endereco_entrega}</p>
         <p style={{ color: '#aaa', fontSize: 12, margin: '2px 0' }}>
           💳 {pedido.forma_pagamento}{pedido.troco ? ` — Troco para ${pedido.troco}` : ''}
         </p>
