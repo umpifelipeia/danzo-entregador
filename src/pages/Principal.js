@@ -46,20 +46,17 @@ export default function Principal() {
   const [carregando, setCarregando] = useState(true);
   const [pedidoDetalhe, setPedidoDetalhe] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
-  const [gpsAtual, setGpsAtual] = useState(null);
-  const [gpsStatus, setGpsStatus] = useState('aguardando'); // 'aguardando' | 'ativo' | 'erro'
   const [online, setOnline] = useState(navigator.onLine);
   const [obsConfirmacao, setObsConfirmacao] = useState('');
   const [mostrarObs, setMostrarObs] = useState(false);
 
   const watchIdRef = useRef(null);
   const wakeLockRef = useRef(null);
-  const gpsCoordRef = useRef(null); // coords atuais para uso sync
+  const gpsCoordRef = useRef(null);
   const ultimaAtualizacaoRef = useRef(null);
   const saudavelTimerRef = useRef(null);
   const reiniciarTimerRef = useRef(null);
 
-  // Wake Lock — impede tela de apagar
   async function adquirirWakeLock() {
     if (!('wakeLock' in navigator)) return;
     try {
@@ -72,12 +69,8 @@ export default function Principal() {
   }
 
   const iniciarGPS = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGpsStatus('erro');
-      return;
-    }
+    if (!navigator.geolocation) return;
 
-    // Limpa watch anterior se existir
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -89,8 +82,6 @@ export default function Principal() {
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         gpsCoordRef.current = coords;
         ultimaAtualizacaoRef.current = Date.now();
-        setGpsAtual(coords);
-        setGpsStatus('ativo');
         try {
           await api.patch('/entregadores/meu-gps', { lat: coords.lat, lng: coords.lon });
         } catch (err) {
@@ -99,8 +90,6 @@ export default function Principal() {
       },
       (err) => {
         console.error('Erro watchPosition:', err.message);
-        setGpsStatus('erro');
-        // Reinicia em 6s após erro
         reiniciarTimerRef.current = setTimeout(iniciarGPS, 6000);
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 }
@@ -108,7 +97,6 @@ export default function Principal() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    // Pedido permissão de notificação
     pedirPermissaoNotificacao();
 
     buscarPedidos();
@@ -123,26 +111,21 @@ export default function Principal() {
     window.addEventListener('online', aoFicarOnline);
     window.addEventListener('offline', aoFicarOffline);
 
-    // Inicia GPS e wake lock
     iniciarGPS();
     adquirirWakeLock();
 
-    // Mostra notificação persistente (mantém browser vivo no Android)
     navigator.serviceWorker?.ready.then(() => {
       swPostMessage('SHOW_TRACKING');
     });
 
-    // Verifica saúde do GPS a cada 30s — reinicia se parou há mais de 90s
     saudavelTimerRef.current = setInterval(() => {
       const ultima = ultimaAtualizacaoRef.current;
       if (ultima && Date.now() - ultima > 90000) {
         console.warn('GPS inativo há 90s, reiniciando...');
-        setGpsStatus('erro');
         iniciarGPS();
       }
     }, 30000);
 
-    // Quando app volta ao primeiro plano: re-adquire wake lock e verifica GPS
     function aoMudarVisibilidade() {
       if (document.visibilityState === 'visible') {
         adquirirWakeLock();
@@ -150,7 +133,6 @@ export default function Principal() {
         if (!ultima || Date.now() - ultima > 30000) {
           iniciarGPS();
         }
-        // Reenvia notificação caso tenha sido descartada
         navigator.serviceWorker?.ready.then(() => {
           swPostMessage('SHOW_TRACKING');
         });
@@ -286,15 +268,11 @@ export default function Principal() {
   const pedidosAguardando = pedidos.filter(p => p.status === 'entregador_atribuido');
   const pedidosEmRota = pedidos.filter(p => p.status === 'em_rota');
 
-  const corGps = gpsStatus === 'ativo' ? '#22c55e' : gpsStatus === 'erro' ? '#ef4444' : '#f59e0b';
-  const labelGps = gpsStatus === 'ativo' ? 'GPS ativo' : gpsStatus === 'erro' ? 'GPS erro — reconectando' : 'Aguardando GPS...';
-
   // Tela de detalhe
   if (pedidoDetalhe) {
     const itens = pedidoDetalhe.itens_pedido || [];
     return (
       <div style={s.container}>
-        <GpsBolinha cor={corGps} label={labelGps} />
         {!online && (
           <div style={{ background: '#E8611A', color: '#fff', textAlign: 'center', padding: '8px', fontSize: 13, fontWeight: 600 }}>
             📡 Sem conexão — modo offline
@@ -387,7 +365,6 @@ export default function Principal() {
   // Tela principal
   return (
     <div style={s.container}>
-      <GpsBolinha cor={corGps} label={labelGps} />
       {!online && (
         <div style={{ background: '#E8611A', color: '#fff', textAlign: 'center', padding: '8px', fontSize: 13, fontWeight: 600 }}>
           📡 Sem conexão — modo offline
@@ -444,28 +421,6 @@ export default function Principal() {
         </div>
       )}
     </div>
-  );
-}
-
-// Bolinha flutuante de status GPS — visível dentro do app
-function GpsBolinha({ cor, label }) {
-  return (
-    <div
-      title={label}
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 20,
-        width: 18,
-        height: 18,
-        borderRadius: '50%',
-        background: cor,
-        boxShadow: `0 0 0 5px ${cor}33`,
-        zIndex: 9999,
-        cursor: 'default',
-        animation: cor === '#22c55e' ? 'gpsPulse 2s ease-in-out infinite' : 'none',
-      }}
-    />
   );
 }
 
