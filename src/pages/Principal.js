@@ -214,7 +214,10 @@ setPedidos(listaPorDistancia);
           <Row label="📍 Endereço" val={pedidoDetalhe.endereco_entrega} />
           <Row label="💳 Pagamento" val={pedidoDetalhe.forma_pagamento} />
           {pedidoDetalhe.troco && <Row label="💵 Troco para" val={pedidoDetalhe.troco} />}
-          {pedidoDetalhe.observacoes && <Row label="📝 Obs" val={pedidoDetalhe.observacoes} />}
+          {pedidoDetalhe.observacoes && <Row label="📝 Observação" val={pedidoDetalhe.observacoes} />}
+          {Number(pedidoDetalhe.taxa_entrega) > 0 && (
+            <Row label="🛵 Frete" val={`R$ ${Number(pedidoDetalhe.taxa_entrega).toFixed(2)}`} />
+          )}
           <Row label="💰 Total" val={`R$ ${Number(pedidoDetalhe.total).toFixed(2)}`} destaque />
         </div>
 
@@ -250,7 +253,7 @@ setPedidos(listaPorDistancia);
                 </button>
                 <button onClick={() => setMostrarObs(true)}
                   style={{ width: '100%', padding: 10, background: 'none', border: '1px solid #444', borderRadius: 8, color: '#888', fontSize: 13, cursor: 'pointer' }}>
-                  + Adicionar observação
+                  Observação
                 </button>
               </div>
             ) : (
