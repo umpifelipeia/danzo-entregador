@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
@@ -26,6 +26,18 @@ async function calcularDistancia(origemLat, origemLon, destinoLat, destinoLon) {
   return 9999;
 }
 
+function swPostMessage(type) {
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type });
+  }
+}
+
+async function pedirPermissaoNotificacao() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+}
+
 export default function Principal() {
   const { usuario, logout } = useAuth();
   const [disponivel, setDisponivel] = useState(true);
@@ -35,13 +47,70 @@ export default function Principal() {
   const [pedidoDetalhe, setPedidoDetalhe] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
   const [gpsAtual, setGpsAtual] = useState(null);
-  const gpsRef = useRef(null);
+  const [gpsStatus, setGpsStatus] = useState('aguardando'); // 'aguardando' | 'ativo' | 'erro'
   const [online, setOnline] = useState(navigator.onLine);
   const [obsConfirmacao, setObsConfirmacao] = useState('');
   const [mostrarObs, setMostrarObs] = useState(false);
-  
+
+  const watchIdRef = useRef(null);
+  const wakeLockRef = useRef(null);
+  const gpsCoordRef = useRef(null); // coords atuais para uso sync
+  const ultimaAtualizacaoRef = useRef(null);
+  const saudavelTimerRef = useRef(null);
+  const reiniciarTimerRef = useRef(null);
+
+  // Wake Lock — impede tela de apagar
+  async function adquirirWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+      if (wakeLockRef.current) return;
+      wakeLockRef.current = await navigator.wakeLock.request('screen');
+      wakeLockRef.current.addEventListener('release', () => {
+        wakeLockRef.current = null;
+      });
+    } catch {}
+  }
+
+  const iniciarGPS = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGpsStatus('erro');
+      return;
+    }
+
+    // Limpa watch anterior se existir
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    clearTimeout(reiniciarTimerRef.current);
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      async (pos) => {
+        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        gpsCoordRef.current = coords;
+        ultimaAtualizacaoRef.current = Date.now();
+        setGpsAtual(coords);
+        setGpsStatus('ativo');
+        try {
+          await api.patch('/entregadores/meu-gps', { lat: coords.lat, lng: coords.lon });
+        } catch (err) {
+          console.error('Erro ao enviar GPS:', err.message);
+        }
+      },
+      (err) => {
+        console.error('Erro watchPosition:', err.message);
+        setGpsStatus('erro');
+        // Reinicia em 6s após erro
+        reiniciarTimerRef.current = setTimeout(iniciarGPS, 6000);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 }
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // Pedido permissão de notificação
+    pedirPermissaoNotificacao();
+
     buscarPedidos();
     const intervalo = setInterval(buscarPedidos, 15000);
 
@@ -54,31 +123,57 @@ export default function Principal() {
     window.addEventListener('online', aoFicarOnline);
     window.addEventListener('offline', aoFicarOffline);
 
-    if (!navigator.geolocation) return;
-    gpsRef.current = navigator.geolocation.watchPosition(
-      async (pos) => {
-        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        setGpsAtual(coords);
-        try {
-          await api.patch('/entregadores/meu-gps', {
-            lat: coords.lat, lng: coords.lon,
-          });
-        } catch (err) {
-          console.error('Erro ao enviar GPS:', err.message);
+    // Inicia GPS e wake lock
+    iniciarGPS();
+    adquirirWakeLock();
+
+    // Mostra notificação persistente (mantém browser vivo no Android)
+    navigator.serviceWorker?.ready.then(() => {
+      swPostMessage('SHOW_TRACKING');
+    });
+
+    // Verifica saúde do GPS a cada 30s — reinicia se parou há mais de 90s
+    saudavelTimerRef.current = setInterval(() => {
+      const ultima = ultimaAtualizacaoRef.current;
+      if (ultima && Date.now() - ultima > 90000) {
+        console.warn('GPS inativo há 90s, reiniciando...');
+        setGpsStatus('erro');
+        iniciarGPS();
+      }
+    }, 30000);
+
+    // Quando app volta ao primeiro plano: re-adquire wake lock e verifica GPS
+    function aoMudarVisibilidade() {
+      if (document.visibilityState === 'visible') {
+        adquirirWakeLock();
+        const ultima = ultimaAtualizacaoRef.current;
+        if (!ultima || Date.now() - ultima > 30000) {
+          iniciarGPS();
         }
-      },
-      (err) => console.error('Erro GPS:', err.message),
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
-    );
+        // Reenvia notificação caso tenha sido descartada
+        navigator.serviceWorker?.ready.then(() => {
+          swPostMessage('SHOW_TRACKING');
+        });
+      }
+    }
+    document.addEventListener('visibilitychange', aoMudarVisibilidade);
 
     return () => {
       clearInterval(intervalo);
+      clearInterval(saudavelTimerRef.current);
+      clearTimeout(reiniciarTimerRef.current);
       window.removeEventListener('online', aoFicarOnline);
       window.removeEventListener('offline', aoFicarOffline);
-      if (gpsRef.current !== null) {
-        navigator.geolocation.clearWatch(gpsRef.current);
-        gpsRef.current = null;
+      document.removeEventListener('visibilitychange', aoMudarVisibilidade);
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
       }
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+      swPostMessage('HIDE_TRACKING');
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -88,7 +183,7 @@ export default function Principal() {
       const { data } = await api.get('/entregadores/meus-pedidos');
       const lista = data.pedidos || [];
       const listaPorDistancia = await ordenarPorDistancia(lista);
-setPedidos(listaPorDistancia);
+      setPedidos(listaPorDistancia);
       setEmRota(data.em_rota || false);
     } catch (err) {
       console.error('Erro ao buscar pedidos:', err.message);
@@ -98,14 +193,15 @@ setPedidos(listaPorDistancia);
   }
 
   async function ordenarPorDistancia(lista) {
-    if (!gpsAtual || lista.length <= 1) return lista;
+    const coords = gpsCoordRef.current;
+    if (!coords || lista.length <= 1) return lista;
     const comDistancia = await Promise.all(lista.map(async p => {
       if (!p.endereco_entrega || p.endereco_entrega === 'Endereço não informado') {
         return { ...p, distancia: 9999 };
       }
-      const coords = await geocodificar(p.endereco_entrega);
-      if (!coords) return { ...p, distancia: 9999 };
-      const dist = await calcularDistancia(gpsAtual.lat, gpsAtual.lon, coords.lat, coords.lon);
+      const dest = await geocodificar(p.endereco_entrega);
+      if (!dest) return { ...p, distancia: 9999 };
+      const dist = await calcularDistancia(coords.lat, coords.lon, dest.lat, dest.lon);
       return { ...p, distancia: dist };
     }));
     return comDistancia.sort((a, b) => a.distancia - b.distancia);
@@ -190,11 +286,15 @@ setPedidos(listaPorDistancia);
   const pedidosAguardando = pedidos.filter(p => p.status === 'entregador_atribuido');
   const pedidosEmRota = pedidos.filter(p => p.status === 'em_rota');
 
+  const corGps = gpsStatus === 'ativo' ? '#22c55e' : gpsStatus === 'erro' ? '#ef4444' : '#f59e0b';
+  const labelGps = gpsStatus === 'ativo' ? 'GPS ativo' : gpsStatus === 'erro' ? 'GPS erro — reconectando' : 'Aguardando GPS...';
+
   // Tela de detalhe
   if (pedidoDetalhe) {
     const itens = pedidoDetalhe.itens_pedido || [];
     return (
       <div style={s.container}>
+        <GpsBolinha cor={corGps} label={labelGps} />
         {!online && (
           <div style={{ background: '#E8611A', color: '#fff', textAlign: 'center', padding: '8px', fontSize: 13, fontWeight: 600 }}>
             📡 Sem conexão — modo offline
@@ -287,11 +387,12 @@ setPedidos(listaPorDistancia);
   // Tela principal
   return (
     <div style={s.container}>
-        {!online && (
-          <div style={{ background: '#E8611A', color: '#fff', textAlign: 'center', padding: '8px', fontSize: 13, fontWeight: 600 }}>
-            📡 Sem conexão — modo offline
-          </div>
-        )}
+      <GpsBolinha cor={corGps} label={labelGps} />
+      {!online && (
+        <div style={{ background: '#E8611A', color: '#fff', textAlign: 'center', padding: '8px', fontSize: 13, fontWeight: 600 }}>
+          📡 Sem conexão — modo offline
+        </div>
+      )}
       <div style={s.header}>
         <div>
           <p style={s.saudacao} translate="no">Olá, {usuario?.nome?.split(' ')[0]}! 👋</p>
@@ -346,6 +447,28 @@ setPedidos(listaPorDistancia);
   );
 }
 
+// Bolinha flutuante de status GPS — visível dentro do app
+function GpsBolinha({ cor, label }) {
+  return (
+    <div
+      title={label}
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        right: 20,
+        width: 18,
+        height: 18,
+        borderRadius: '50%',
+        background: cor,
+        boxShadow: `0 0 0 5px ${cor}33`,
+        zIndex: 9999,
+        cursor: 'default',
+        animation: cor === '#22c55e' ? 'gpsPulse 2s ease-in-out infinite' : 'none',
+      }}
+    />
+  );
+}
+
 function Row({ label, val, destaque }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #2a2d3a' }}>
@@ -371,7 +494,7 @@ function CardPedido({ pedido, onClick, onMaps, onWaze, onConfirmar, cor }) {
         <p style={{ color: cor, fontSize: 11, textAlign: 'right', margin: '6px 0 0' }}>Ver detalhes →</p>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-       <button onClick={onMaps} style={{ flex: 1, padding: '10px 0', background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗺️ Maps</button>
+        <button onClick={onMaps} style={{ flex: 1, padding: '10px 0', background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗺️ Maps</button>
         <button onClick={onWaze} style={{ flex: 1, padding: '10px 0', background: '#1a2035', color: '#00AAFF', border: '1px solid #00AAFF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🚗 Waze</button>
         {onConfirmar && (
           <button onClick={onConfirmar} style={{ flex: 2, padding: '10px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✅ Confirmar</button>
