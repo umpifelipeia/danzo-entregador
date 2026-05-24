@@ -167,8 +167,9 @@ setPedidos(listaPorDistancia);
       setMostrarObs(false);
       setObsConfirmacao('');
       buscarPedidos();
-    } catch {
-      alert('Erro ao confirmar entrega.');
+    } catch (err) {
+      const msg = err.response?.data?.error || err.response?.data?.message || 'Erro ao confirmar entrega. Tente novamente.';
+      alert(msg);
     } finally {
       setConfirmando(false);
     }
