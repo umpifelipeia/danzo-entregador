@@ -41,14 +41,14 @@ export default function Login() {
         <form onSubmit={handleLogin} style={styles.form}>
           <div style={styles.campo}>
             <label style={styles.label}>WhatsApp da Loja</label>
-<input
-  type="tel"
-  value={whatsappLoja}
-  onChange={(e) => setWhatsappLoja(e.target.value)}
-  style={styles.input}
-  placeholder="11999999999"
-  required
-/>
+            <input
+              type="tel"
+              value={whatsappLoja}
+              onChange={(e) => setWhatsappLoja(e.target.value)}
+              style={styles.input}
+              placeholder="11999999999"
+              required
+            />
           </div>
 
           <div style={styles.campo}>
@@ -102,33 +102,33 @@ export default function Login() {
 const styles = {
   container: {
     minHeight: '100vh',
-    background: '#0f1117',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
   card: {
-    background: '#1a1d27',
-    borderRadius: 16,
-    padding: 32,
+    background: '#fff',
+    borderRadius: 24,
+    padding: 36,
     width: '100%',
     maxWidth: 380,
     textAlign: 'center',
+    boxShadow: '0 8px 32px rgba(30,41,59,0.12), 0 2px 8px rgba(30,41,59,0.07)',
   },
   logo: { fontSize: 48, marginBottom: 8 },
-  titulo: { color: '#1AABCF', fontFamily: 'Sora, sans-serif', fontSize: 24, margin: 0 },
-  subtitulo: { color: '#888', fontSize: 14, marginBottom: 28 },
+  titulo: { color: '#1e293b', fontFamily: 'Sora, sans-serif', fontSize: 24, margin: 0, fontWeight: 700 },
+  subtitulo: { color: '#64748b', fontSize: 14, marginBottom: 28, marginTop: 4 },
   form: { textAlign: 'left' },
   campo: { marginBottom: 16 },
-  label: { color: '#ccc', fontSize: 13, display: 'block', marginBottom: 6 },
+  label: { color: '#475569', fontSize: 13, display: 'block', marginBottom: 6, fontWeight: 500 },
   input: {
     width: '100%',
     padding: '12px 14px',
-    borderRadius: 8,
-    border: '1.5px solid #2e3245',
-    background: '#0f1117',
-    color: '#fff',
+    borderRadius: 12,
+    border: '1.5px solid #e2e8f0',
+    background: '#f8fafc',
+    color: '#1e293b',
     fontSize: 15,
     boxSizing: 'border-box',
     outline: 'none',
@@ -139,13 +139,14 @@ const styles = {
     transform: 'translateY(-50%)',
     background: 'none', border: 'none', cursor: 'pointer', fontSize: 18,
   },
-  erro: { color: '#ff4d4d', fontSize: 13, marginBottom: 12 },
+  erro: { color: '#ef4444', fontSize: 13, marginBottom: 12 },
   botao: {
     width: '100%', padding: '14px',
     background: '#1AABCF', color: '#fff',
-    border: 'none', borderRadius: 8,
+    border: 'none', borderRadius: 12,
     fontSize: 16, fontWeight: 600, cursor: 'pointer',
     marginTop: 4,
+    boxShadow: '0 4px 14px rgba(26,171,207,0.35)',
   },
-  esqueci: { color: '#666', fontSize: 12, marginTop: 20 },
+  esqueci: { color: '#94a3b8', fontSize: 12, marginTop: 20 },
 };

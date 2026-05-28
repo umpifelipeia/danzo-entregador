@@ -324,7 +324,7 @@ export default function Principal() {
 
         <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
           <button onClick={() => abrirMaps(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1 }}>🗺️ Maps</button>
-          <button onClick={() => abrirWaze(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1, borderColor: '#00AAFF', color: '#00AAFF' }}>🚗 Waze</button>
+          <button onClick={() => abrirWaze(pedidoDetalhe.endereco_entrega)} style={{ ...s.botaoNav, flex: 1, borderColor: '#00AAFF', color: '#00AAFF', background: 'rgba(0,170,255,0.07)' }}>🚗 Waze</button>
         </div>
 
         {pedidoDetalhe.status === 'entregador_atribuido' && (
@@ -337,11 +337,11 @@ export default function Principal() {
             {!mostrarObs ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button onClick={() => confirmarEntrega(pedidoDetalhe.id)} disabled={confirmando}
-                  style={{ ...s.botaoPrimario, background: confirmando ? '#555' : '#22c55e', marginBottom: 0 }}>
+                  style={{ ...s.botaoPrimario, background: confirmando ? '#94a3b8' : '#22c55e', marginBottom: 0, boxShadow: confirmando ? 'none' : '0 4px 14px rgba(34,197,94,0.3)' }}>
                   {confirmando ? 'Confirmando...' : '✅ Confirmar Entrega'}
                 </button>
                 <button onClick={() => setMostrarObs(true)}
-                  style={{ width: '100%', padding: 10, background: 'none', border: '1px solid #444', borderRadius: 8, color: '#888', fontSize: 13, cursor: 'pointer' }}>
+                  style={{ width: '100%', padding: 10, background: 'none', border: '1.5px solid #e2e8f0', borderRadius: 10, color: '#64748b', fontSize: 13, cursor: 'pointer' }}>
                   Observação
                 </button>
               </div>
@@ -349,9 +349,9 @@ export default function Principal() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <textarea value={obsConfirmacao} onChange={e => setObsConfirmacao(e.target.value)}
                   placeholder="Observação opcional (ex: deixei na portaria)"
-                  style={{ width: '100%', padding: 12, background: '#1a1d27', border: '1px solid #333', borderRadius: 8, color: '#fff', fontSize: 13, resize: 'none', height: 80, boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: 12, background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, color: '#1e293b', fontSize: 13, resize: 'none', height: 80, boxSizing: 'border-box' }} />
                 <button onClick={() => confirmarEntrega(pedidoDetalhe.id, obsConfirmacao)} disabled={confirmando}
-                  style={{ ...s.botaoPrimario, background: confirmando ? '#555' : '#22c55e', marginBottom: 0 }}>
+                  style={{ ...s.botaoPrimario, background: confirmando ? '#94a3b8' : '#22c55e', marginBottom: 0, boxShadow: confirmando ? 'none' : '0 4px 14px rgba(34,197,94,0.3)' }}>
                   {confirmando ? 'Confirmando...' : '✅ Confirmar Entrega'}
                 </button>
               </div>
@@ -380,7 +380,7 @@ export default function Principal() {
 
       <div style={s.toggleCard}>
         <span style={s.toggleLabel}>{disponivel ? '🟢 Disponível' : '🔴 Indisponível'}</span>
-        <div onClick={alternarDisponibilidade} style={{ ...s.toggle, background: disponivel ? '#1AABCF' : '#444' }}>
+        <div onClick={alternarDisponibilidade} style={{ ...s.toggle, background: disponivel ? '#1AABCF' : '#cbd5e1' }}>
           <div style={{ ...s.toggleBolinha, marginLeft: disponivel ? 22 : 2 }} />
         </div>
       </div>
@@ -391,8 +391,8 @@ export default function Principal() {
         <div style={{ textAlign: 'center', marginTop: 60 }}>
           <p style={{ fontSize: 48, margin: 0 }}>📦</p>
           <p style={s.aviso}>Nenhum pedido atribuído no momento.</p>
-          <p style={{ color: '#666', fontSize: 13 }}>Aguarde, avisaremos quando chegar!</p>
-          <button onClick={buscarPedidos} style={s.botaoSec}>Atualizar</button>
+          <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>Aguarde, avisaremos quando chegar!</p>
+          <button onClick={buscarPedidos} style={{ ...s.botaoSec, marginTop: 20 }}>Atualizar</button>
         </div>
       ) : (
         <div>
@@ -426,31 +426,31 @@ export default function Principal() {
 
 function Row({ label, val, destaque }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #2a2d3a' }}>
-      <span style={{ color: '#888', fontSize: 13, minWidth: 110 }}>{label}</span>
-      <span style={{ color: destaque ? '#E8611A' : '#fff', fontSize: 13, textAlign: 'right', flex: 1, fontWeight: destaque ? 700 : 400 }}>{val}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+      <span style={{ color: '#64748b', fontSize: 13, minWidth: 110 }}>{label}</span>
+      <span style={{ color: destaque ? '#E8611A' : '#1e293b', fontSize: 13, textAlign: 'right', flex: 1, fontWeight: destaque ? 700 : 400 }}>{val}</span>
     </div>
   );
 }
 
 function CardPedido({ pedido, onClick, onMaps, onWaze, onConfirmar, cor }) {
   return (
-    <div style={{ background: '#1a1d27', borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `4px solid ${cor}` }}>
+    <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, borderLeft: `4px solid ${cor}`, boxShadow: '0 4px 16px rgba(30,41,59,0.08)' }}>
       <div onClick={onClick} style={{ cursor: 'pointer', marginBottom: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
           <span style={{ color: '#1AABCF', fontWeight: 700, fontSize: 16 }}>#{pedido.numero}</span>
           <span style={{ color: '#E8611A', fontWeight: 700, fontSize: 16 }}>R$ {Number(pedido.total).toFixed(2)}</span>
         </div>
-        <p style={{ color: '#ccc', fontSize: 13, margin: '2px 0' }} translate="no">👤 {pedido.cliente_nome}</p>
-        <p style={{ color: '#fff', fontSize: 13, margin: '2px 0', fontWeight: 500 }} translate="no">📍 {pedido.endereco_entrega}</p>
-        <p style={{ color: '#aaa', fontSize: 12, margin: '2px 0' }}>
+        <p style={{ color: '#64748b', fontSize: 13, margin: '2px 0' }} translate="no">👤 {pedido.cliente_nome}</p>
+        <p style={{ color: '#1e293b', fontSize: 13, margin: '2px 0', fontWeight: 500 }} translate="no">📍 {pedido.endereco_entrega}</p>
+        <p style={{ color: '#94a3b8', fontSize: 12, margin: '2px 0' }}>
           💳 {pedido.forma_pagamento}{pedido.troco ? ` — Troco para ${pedido.troco}` : ''}
         </p>
         <p style={{ color: cor, fontSize: 11, textAlign: 'right', margin: '6px 0 0' }}>Ver detalhes →</p>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={onMaps} style={{ flex: 1, padding: '10px 0', background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗺️ Maps</button>
-        <button onClick={onWaze} style={{ flex: 1, padding: '10px 0', background: '#1a2035', color: '#00AAFF', border: '1px solid #00AAFF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🚗 Waze</button>
+        <button onClick={onMaps} style={{ flex: 1, padding: '10px 0', background: 'rgba(26,171,207,0.07)', color: '#1AABCF', border: '1.5px solid #1AABCF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗺️ Maps</button>
+        <button onClick={onWaze} style={{ flex: 1, padding: '10px 0', background: 'rgba(0,170,255,0.07)', color: '#00AAFF', border: '1.5px solid #00AAFF', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🚗 Waze</button>
         {onConfirmar && (
           <button onClick={onConfirmar} style={{ flex: 2, padding: '10px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✅ Confirmar</button>
         )}
@@ -460,25 +460,25 @@ function CardPedido({ pedido, onClick, onMaps, onWaze, onConfirmar, cor }) {
 }
 
 const s = {
-  container: { minHeight: '100vh', background: '#0f1117', padding: 20, color: '#fff', fontFamily: 'Inter, sans-serif' },
+  container: { minHeight: '100vh', padding: 20, color: '#1e293b', fontFamily: 'Inter, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   saudacao: { fontSize: 20, fontWeight: 700, color: '#1AABCF', margin: 0, fontFamily: 'Sora, sans-serif' },
-  subheader: { fontSize: 13, color: '#888', margin: 0 },
-  sair: { background: 'none', border: '1px solid #333', color: '#888', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
+  subheader: { fontSize: 13, color: '#64748b', margin: 0 },
+  sair: { background: 'none', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '6px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13 },
   btnVoltar: { background: 'none', border: 'none', color: '#1AABCF', fontSize: 15, cursor: 'pointer', padding: 0 },
-  titulo: { fontSize: 22, fontWeight: 700, color: '#fff', fontFamily: 'Sora, sans-serif', margin: '0 0 8px' },
+  titulo: { fontSize: 22, fontWeight: 700, color: '#1e293b', fontFamily: 'Sora, sans-serif', margin: '0 0 8px' },
   badge: { fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, color: '#fff', display: 'inline-block', marginBottom: 16 },
-  toggleCard: { background: '#1a1d27', borderRadius: 12, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  toggleLabel: { fontSize: 15, fontWeight: 600 },
+  toggleCard: { background: '#fff', borderRadius: 16, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, boxShadow: '0 4px 16px rgba(30,41,59,0.08)' },
+  toggleLabel: { fontSize: 15, fontWeight: 600, color: '#1e293b' },
   toggle: { width: 48, height: 26, borderRadius: 13, cursor: 'pointer', position: 'relative', transition: 'background 0.2s' },
-  toggleBolinha: { width: 22, height: 22, background: '#fff', borderRadius: '50%', position: 'absolute', top: 2, transition: 'margin 0.2s' },
-  aviso: { color: '#ccc', fontSize: 16, textAlign: 'center' },
-  secaoTitulo: { fontSize: 12, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
-  botaoPrimario: { width: '100%', padding: 16, background: '#1AABCF', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 },
-  botaoSec: { padding: '10px 24px', background: '#1a1d27', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
-  botaoNav: { padding: 12, background: '#1a2a35', color: '#1AABCF', border: '1px solid #1AABCF', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  card: { background: '#1a1d27', borderRadius: 12, padding: 16, marginBottom: 12 },
-  itemRow: { display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #2a2d3a' },
-  itemNome: { color: '#ccc', fontSize: 13 },
-  itemVal: { color: '#fff', fontSize: 13, fontWeight: 600 },
+  toggleBolinha: { width: 22, height: 22, background: '#fff', borderRadius: '50%', position: 'absolute', top: 2, transition: 'margin 0.2s', boxShadow: '0 1px 4px rgba(30,41,59,0.2)' },
+  aviso: { color: '#64748b', fontSize: 16, textAlign: 'center', marginTop: 8 },
+  secaoTitulo: { fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
+  botaoPrimario: { width: '100%', padding: 16, background: '#1AABCF', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12, boxShadow: '0 4px 14px rgba(26,171,207,0.3)' },
+  botaoSec: { padding: '10px 24px', background: '#fff', color: '#1AABCF', border: '1.5px solid #1AABCF', borderRadius: 10, cursor: 'pointer', fontSize: 14 },
+  botaoNav: { padding: 12, background: 'rgba(26,171,207,0.07)', color: '#1AABCF', border: '1.5px solid #1AABCF', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  card: { background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: '0 4px 16px rgba(30,41,59,0.08)' },
+  itemRow: { display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f1f5f9' },
+  itemNome: { color: '#475569', fontSize: 13 },
+  itemVal: { color: '#1e293b', fontSize: 13, fontWeight: 600 },
 };
