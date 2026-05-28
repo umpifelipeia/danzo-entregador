@@ -35,7 +35,7 @@ export default function TrocarSenha() {
 
       // Atualiza primeiro_acesso localmente
       const usuarioAtualizado = { ...usuario, primeiro_acesso: false };
-      localStorage.setItem('usuario', JSON.stringify(usuarioAtualizado));
+      localStorage.setItem('danzo_entregador_usuario', JSON.stringify(usuarioAtualizado));
       setUsuario(usuarioAtualizado);
 
       navigate('/');

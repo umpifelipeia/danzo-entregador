@@ -26,7 +26,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isLoginEndpoint = error.config?.url?.includes('/auth/entregador/login');
+    if (error.response?.status === 401 && !isLoginEndpoint) {
       localStorage.removeItem('danzo_entregador_token');
       localStorage.removeItem('danzo_entregador_usuario');
       window.location.href = '/login';
