@@ -9,25 +9,29 @@ export function AuthProvider({ children }) {
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const usuarioSalvo = localStorage.getItem('usuario');
+    const token = localStorage.getItem('danzo_entregador_token');
+    const usuarioSalvo = localStorage.getItem('danzo_entregador_usuario');
     if (token && usuarioSalvo) {
-      setUsuario(JSON.parse(usuarioSalvo));
+      try {
+        setUsuario(JSON.parse(usuarioSalvo));
+      } catch {
+        localStorage.removeItem('danzo_entregador_usuario');
+      }
     }
     setCarregando(false);
   }, []);
 
   async function login(whatsapp, senha, whatsappLoja) {
-  const { data } = await api.post('/auth/entregador/login', { whatsapp, senha, whatsapp_loja: whatsappLoja });
-  localStorage.setItem('token', data.token);
-  localStorage.setItem('usuario', JSON.stringify(data.usuario));
-  setUsuario(data.usuario);
-  return data.usuario;
-}
+    const { data } = await api.post('/auth/entregador/login', { whatsapp, senha, whatsapp_loja: whatsappLoja });
+    localStorage.setItem('danzo_entregador_token', data.token);
+    localStorage.setItem('danzo_entregador_usuario', JSON.stringify(data.usuario));
+    setUsuario(data.usuario);
+    return data.usuario;
+  }
 
   function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('usuario');
+    localStorage.removeItem('danzo_entregador_token');
+    localStorage.removeItem('danzo_entregador_usuario');
     setUsuario(null);
   }
 
