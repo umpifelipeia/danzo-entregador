@@ -25,7 +25,7 @@ export default function Login() {
       }
       navigate('/');
     } catch (err) {
-      setErro(err.response?.data?.message || 'Usuário ou senha incorretos.');
+      setErro(err.response?.data?.error || err.response?.data?.message || 'Usuário ou senha incorretos.');
     } finally {
       setCarregando(false);
     }
