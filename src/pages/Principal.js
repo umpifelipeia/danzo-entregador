@@ -3,27 +3,38 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org';
-const OSRM = 'https://router.project-osrm.org';
+
+// Cache de geocodificação para evitar requests repetidos
+const geoCache = new Map();
 
 async function geocodificar(endereco) {
+  if (!endereco) return null;
+  const cacheKey = endereco.toLowerCase().trim();
+  if (geoCache.has(cacheKey)) return geoCache.get(cacheKey);
   try {
     const res = await fetch(`${NOMINATIM}/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`, {
       headers: { 'User-Agent': 'DanzoEntregador/1.0' }
     });
     const data = await res.json();
-    if (data?.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+    if (data?.length > 0) {
+      const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+      geoCache.set(cacheKey, coords);
+      return coords;
+    }
   } catch {}
   return null;
 }
 
-async function calcularDistancia(origemLat, origemLon, destinoLat, destinoLon) {
-  try {
-    const url = `${OSRM}/route/v1/driving/${origemLon},${origemLat};${destinoLon},${destinoLat}?overview=false`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.code === 'Ok') return data.routes[0].distance / 1000;
-  } catch {}
-  return 9999;
+// Fórmula de Haversine - retorna distância em km
+function distanciaHaversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function swPostMessage(type) {
@@ -183,7 +194,7 @@ export default function Principal() {
       }
       const dest = await geocodificar(p.endereco_entrega);
       if (!dest) return { ...p, distancia: 9999 };
-      const dist = await calcularDistancia(coords.lat, coords.lon, dest.lat, dest.lon);
+      const dist = distanciaHaversine(coords.lat, coords.lon, dest.lat, dest.lon);
       return { ...p, distancia: dist };
     }));
     return comDistancia.sort((a, b) => a.distancia - b.distancia);
