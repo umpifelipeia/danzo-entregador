@@ -264,6 +264,16 @@ export default function Principal() {
     }
   }
 
+  async function confirmarCancelamento(pedidoId) {
+    try {
+      await api.post(`/entregadores/confirmar-cancelamento/${pedidoId}`);
+      setPedidos(prev => prev.filter(p => p.id !== pedidoId));
+      buscarPedidos();
+    } catch {
+      alert('Erro ao confirmar. Tente novamente.');
+    }
+  }
+
   function abrirMaps(endereco) {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`, '_blank');
   }
@@ -276,6 +286,7 @@ export default function Principal() {
     setPedidoDetalhe(pedido);
   }
 
+  const pedidosCancelados = pedidos.filter(p => p.cancelado);
   const pedidosAguardando = pedidos.filter(p => p.status === 'entregador_atribuido');
   const pedidosEmRota = pedidos.filter(p => p.status === 'em_rota');
 
@@ -407,6 +418,14 @@ export default function Principal() {
         </div>
       ) : (
         <div>
+          {pedidosCancelados.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              {pedidosCancelados.map(p => (
+                <CardCancelado key={p.id} pedido={p} onConfirmar={() => confirmarCancelamento(p.id)} />
+              ))}
+            </div>
+          )}
+
           {pedidosAguardando.length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <p style={s.secaoTitulo}>⏳ Aguardando iniciar rota</p>
@@ -440,6 +459,33 @@ function Row({ label, val, destaque }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
       <span style={{ color: '#64748b', fontSize: 13, minWidth: 110 }}>{label}</span>
       <span style={{ color: destaque ? '#E8611A' : '#1e293b', fontSize: 13, textAlign: 'right', flex: 1, fontWeight: destaque ? 700 : 400 }}>{val}</span>
+    </div>
+  );
+}
+
+function CardCancelado({ pedido, onConfirmar }) {
+  return (
+    <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, borderLeft: '4px solid #ef4444', boxShadow: '0 4px 16px rgba(239,68,68,0.18)' }}>
+      <div style={{ display: 'inline-block', background: '#fee2e2', color: '#b91c1c', fontWeight: 700, fontSize: 12, padding: '4px 12px', borderRadius: 20, marginBottom: 10 }}>
+        ❌ Pedido cancelado
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ color: '#1e293b', fontWeight: 700, fontSize: 16 }} translate="no">#{pedido.numero}</span>
+        <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14, textDecoration: 'line-through' }}>R$ {Number(pedido.total).toFixed(2)}</span>
+      </div>
+      <p style={{ color: '#64748b', fontSize: 13, margin: '2px 0' }} translate="no">👤 {pedido.cliente_nome}</p>
+      <p style={{ color: '#1e293b', fontSize: 13, margin: '2px 0', fontWeight: 500 }} translate="no">📍 {pedido.endereco_entrega}</p>
+      {pedido.motivo_cancelamento && (
+        <p style={{ color: '#b91c1c', fontSize: 13, margin: '8px 0 0', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 10px' }}>
+          Motivo: {pedido.motivo_cancelamento}
+        </p>
+      )}
+      <p style={{ color: '#94a3b8', fontSize: 12, margin: '10px 0 12px' }}>
+        Não saia para esta entrega. Confirme abaixo que você viu o cancelamento.
+      </p>
+      <button onClick={onConfirmar} style={{ width: '100%', padding: 14, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(239,68,68,0.3)' }}>
+        ✓ Confirmar que vi o cancelamento
+      </button>
     </div>
   );
 }
