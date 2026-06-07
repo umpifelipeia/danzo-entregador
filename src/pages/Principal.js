@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { iniciarGpsBackground, pararGpsBackground } from '../services/gpsBackground';
+import { bolhaDisponivel, temPermissaoBolha, pedirPermissaoBolha, mostrarBolha, esconderBolha } from '../services/floatingBubble';
+import { registrarTokenPush } from '../services/pushNotifications';
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org';
 
@@ -51,7 +54,10 @@ async function pedirPermissaoNotificacao() {
 
 export default function Principal() {
   const { usuario, logout } = useAuth();
-  const [disponivel, setDisponivel] = useState(true);
+  const [disponivel, setDisponivel] = useState(() => {
+    const v = localStorage.getItem('danzo_disponivel');
+    return v === null ? true : v === '1';
+  });
   const [pedidos, setPedidos] = useState([]);
   const [emRota, setEmRota] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -79,7 +85,19 @@ export default function Principal() {
     } catch {}
   }
 
-  const iniciarGPS = useCallback(() => {
+  const iniciarGPS = useCallback(async () => {
+    // App nativo (Android): usa o serviço de GPS em segundo plano (foreground service).
+    // Funciona com o app minimizado/fechado. Se iniciar, não usa o watchPosition.
+    try {
+      const usouNativo = await iniciarGpsBackground((coords) => {
+        gpsCoordRef.current = coords;
+        ultimaAtualizacaoRef.current = Date.now();
+      });
+      if (usouNativo) return;
+    } catch (e) {
+      console.error('GPS background indisponível, usando watchPosition:', e.message);
+    }
+
     if (!navigator.geolocation) return;
 
     if (watchIdRef.current !== null) {
@@ -111,7 +129,19 @@ export default function Principal() {
     pedirPermissaoNotificacao();
 
     buscarPedidos();
-    const intervalo = setInterval(buscarPedidos, 15000);
+    // Intervalo vira rede de segurança (45s) — o tempo real cobre o resto.
+    const intervalo = setInterval(buscarPedidos, 45000);
+
+    // Tempo real (SSE): refaz a busca na hora quando muda algum pedido
+    let es = null;
+    try {
+      const token = localStorage.getItem('danzo_entregador_token');
+      const base = process.env.REACT_APP_API_URL || 'https://danzo-erp-production.up.railway.app';
+      if (token) {
+        es = new EventSource(`${base}/events?token=${encodeURIComponent(token)}`);
+        es.addEventListener('pedidos', () => buscarPedidos());
+      }
+    } catch {}
 
     function aoFicarOnline() {
       setOnline(true);
@@ -124,6 +154,19 @@ export default function Principal() {
 
     iniciarGPS();
     adquirirWakeLock();
+
+    // Bolinha flutuante (app nativo): pede a permissao de sobreposicao uma vez.
+    (async () => {
+      if (!bolhaDisponivel()) return;
+      const ok = await temPermissaoBolha();
+      if (!ok && !localStorage.getItem('danzo_bolha_solicitada')) {
+        localStorage.setItem('danzo_bolha_solicitada', '1');
+        await pedirPermissaoBolha();
+      }
+    })();
+
+    // Push FCM (app nativo): pede permissao de notificacao e registra o token.
+    registrarTokenPush();
 
     navigator.serviceWorker?.ready.then(() => {
       swPostMessage('SHOW_TRACKING');
@@ -140,6 +183,7 @@ export default function Principal() {
     function aoMudarVisibilidade() {
       if (document.visibilityState === 'visible') {
         adquirirWakeLock();
+        esconderBolha(); // app em primeiro plano: esconde a bolinha
         const ultima = ultimaAtualizacaoRef.current;
         if (!ultima || Date.now() - ultima > 30000) {
           iniciarGPS();
@@ -147,12 +191,15 @@ export default function Principal() {
         navigator.serviceWorker?.ready.then(() => {
           swPostMessage('SHOW_TRACKING');
         });
+      } else {
+        mostrarBolha(); // app minimizado: mostra a bolinha por cima dos outros apps
       }
     }
     document.addEventListener('visibilitychange', aoMudarVisibilidade);
 
     return () => {
       clearInterval(intervalo);
+      if (es) es.close();
       clearInterval(saudavelTimerRef.current);
       clearTimeout(reiniciarTimerRef.current);
       window.removeEventListener('online', aoFicarOnline);
@@ -162,6 +209,8 @@ export default function Principal() {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
+      pararGpsBackground();
+      esconderBolha();
       if (wakeLockRef.current) {
         wakeLockRef.current.release();
         wakeLockRef.current = null;
@@ -202,8 +251,10 @@ export default function Principal() {
 
   async function alternarDisponibilidade() {
     try {
-      await api.patch('/entregadores/disponibilidade', { disponivel: !disponivel });
-      setDisponivel(!disponivel);
+      const novo = !disponivel;
+      await api.patch('/entregadores/disponibilidade', { disponivel: novo });
+      setDisponivel(novo);
+      localStorage.setItem('danzo_disponivel', novo ? '1' : '0');
     } catch {
       alert('Erro ao alterar disponibilidade.');
     }

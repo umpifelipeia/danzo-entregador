@@ -1,0 +1,10 @@
+{
+  "appId": "com.danzo.entregador",
+  "appName": "Danzo Entregador",
+  "webDir": "build",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

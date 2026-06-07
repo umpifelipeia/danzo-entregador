@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "828128575581",
+    "project_id": "danzo-377eb",
+    "storage_bucket": "danzo-377eb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:828128575581:android:d54896e921556b1a67cdb4",
+        "android_client_info": {
+          "package_name": "com.danzo.entregador"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBaOeexoEZp9evq-JG8d2LuB3e3Ej6ADsY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
