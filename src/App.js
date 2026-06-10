@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Principal from './pages/Principal';
 import TrocarSenha from './pages/TrocarSenha';
+import Entregas from './pages/Entregas';
 
 function GpsGate({ children }) {
   const [gpsStatus, setGpsStatus] = useState('verificando');
@@ -81,6 +82,11 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/trocar-senha" element={<TrocarSenha />} />
+          <Route path="/entregas" element={
+            <RotaProtegida>
+              <Entregas />
+            </RotaProtegida>
+          } />
           <Route path="/" element={
             <RotaProtegida>
               <GpsGate>

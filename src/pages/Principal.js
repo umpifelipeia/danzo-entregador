@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { iniciarGpsBackground, pararGpsBackground } from '../services/gpsBackground';
@@ -53,6 +54,7 @@ async function pedirPermissaoNotificacao() {
 }
 
 export default function Principal() {
+  const navigate = useNavigate();
   const { usuario, logout } = useAuth();
   const [disponivel, setDisponivel] = useState(() => {
     const v = localStorage.getItem('danzo_disponivel');
@@ -448,7 +450,10 @@ export default function Principal() {
           <p style={s.saudacao} translate="no">Olá, {usuario?.nome?.split(' ')[0]}! 👋</p>
           <p style={s.subheader}>{emRota ? '🛵 Em rota de entrega' : 'Aguardando pedidos'}</p>
         </div>
-        <button onClick={logout} style={s.sair}>Sair</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => navigate('/entregas')} style={{ ...s.sair, color: '#1AABCF', borderColor: '#1AABCF' }}>📋 Entregas</button>
+          <button onClick={logout} style={s.sair}>Sair</button>
+        </div>
       </div>
 
       <div style={s.toggleCard}>
