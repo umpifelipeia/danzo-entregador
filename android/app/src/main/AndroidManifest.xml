@@ -72,4 +72,7 @@
     <!-- Push FCM: notificações + abrir o app em tela cheia ao alocar pedido -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Auto-atualização: instalar APK baixado do GitHub Releases -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

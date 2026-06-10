@@ -5,6 +5,7 @@ import api from '../services/api';
 import { iniciarGpsBackground, pararGpsBackground } from '../services/gpsBackground';
 import { bolhaDisponivel, temPermissaoBolha, pedirPermissaoBolha, mostrarBolha, esconderBolha } from '../services/floatingBubble';
 import { registrarTokenPush } from '../services/pushNotifications';
+import { verificarAtualizacao, baixarEInstalarAtualizacao } from '../services/appUpdate';
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org';
 
@@ -68,6 +69,8 @@ export default function Principal() {
   const [online, setOnline] = useState(navigator.onLine);
   const [obsConfirmacao, setObsConfirmacao] = useState('');
   const [mostrarObs, setMostrarObs] = useState(false);
+  const [atualizacao, setAtualizacao] = useState(null);
+  const [baixandoUpdate, setBaixandoUpdate] = useState(false);
 
   const watchIdRef = useRef(null);
   const wakeLockRef = useRef(null);
@@ -170,6 +173,9 @@ export default function Principal() {
     // Push FCM (app nativo): pede permissao de notificacao e registra o token.
     registrarTokenPush();
 
+    // Auto-atualização (app nativo): checa se há versão nova no GitHub Releases.
+    verificarAtualizacao().then(info => { if (info) setAtualizacao(info); });
+
     navigator.serviceWorker?.ready.then(() => {
       swPostMessage('SHOW_TRACKING');
     });
@@ -249,6 +255,19 @@ export default function Principal() {
       return { ...p, distancia: dist };
     }));
     return comDistancia.sort((a, b) => a.distancia - b.distancia);
+  }
+
+  async function aplicarAtualizacao() {
+    if (!atualizacao || baixandoUpdate) return;
+    setBaixandoUpdate(true);
+    try {
+      await baixarEInstalarAtualizacao(atualizacao.url);
+      // O instalador do Android abre por cima; o app será reiniciado ao concluir.
+    } catch {
+      alert('Erro ao baixar a atualização. Tente novamente.');
+    } finally {
+      setBaixandoUpdate(false);
+    }
   }
 
   async function alternarDisponibilidade() {
@@ -455,6 +474,19 @@ export default function Principal() {
           <button onClick={logout} style={s.sair}>Sair</button>
         </div>
       </div>
+
+      {atualizacao && (
+        <div style={{ background: '#fff', borderRadius: 16, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, border: '1.5px solid #1AABCF', boxShadow: '0 4px 16px rgba(26,171,207,0.15)' }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1e293b' }}>🔄 Atualização disponível</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#64748b' }} translate="no">Versão {atualizacao.versao}</p>
+          </div>
+          <button onClick={aplicarAtualizacao} disabled={baixandoUpdate}
+            style={{ padding: '10px 16px', background: baixandoUpdate ? '#94a3b8' : '#1AABCF', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            {baixandoUpdate ? 'Baixando...' : 'Atualizar'}
+          </button>
+        </div>
+      )}
 
       <div style={s.toggleCard}>
         <span style={s.toggleLabel}>{disponivel ? '🟢 Disponível' : '🔴 Indisponível'}</span>
