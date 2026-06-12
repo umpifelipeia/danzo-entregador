@@ -46,7 +46,7 @@ const run = (cmd, cwd = raiz) => { console.log(`\n▶ ${cmd}`); execSync(cmd, { 
 
 run('npm run build')
 run('npx cap sync android')
-run('gradlew.bat assembleRelease', resolve(raiz, 'android'))
+run('.\\gradlew.bat assembleRelease', resolve(raiz, 'android'))
 
 const apkPath = resolve(raiz, 'android/app/build/outputs/apk/release/app-release.apk')
 const tamanho = statSync(apkPath).size
