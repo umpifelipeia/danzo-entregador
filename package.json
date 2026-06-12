@@ -23,6 +23,7 @@
   "scripts": {
     "start": "npm run build && serve -s build -l $PORT",
     "build": "react-scripts build",
+    "release": "node scripts/release.mjs",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
