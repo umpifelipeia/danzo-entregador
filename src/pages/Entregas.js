@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
+// Chave de dia na data local do celular (YYYY-MM-DD) — bate com o <input type="date">
+function chaveLocal(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // Agrupa as entregas por dia (data local do celular)
 function agruparPorDia(entregas) {
   const grupos = new Map();
@@ -41,6 +46,8 @@ export default function Entregas() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [online, setOnline] = useState(navigator.onLine);
+  const [filtro, setFiltro] = useState('tudo'); // tudo | hoje | dia
+  const [diaEspecifico, setDiaEspecifico] = useState('');
 
   useEffect(() => {
     async function buscar() {
@@ -65,7 +72,14 @@ export default function Entregas() {
     };
   }, []);
 
-  const grupos = agruparPorDia(entregas);
+  const hojeChave = chaveLocal(new Date());
+  const entregasFiltradas = entregas.filter((e) => {
+    const ch = chaveLocal(new Date(e.entregue_em));
+    if (filtro === 'hoje') return ch === hojeChave;
+    if (filtro === 'dia') return diaEspecifico ? ch === diaEspecifico : true;
+    return true;
+  });
+  const grupos = agruparPorDia(entregasFiltradas);
 
   return (
     <div style={s.container}>
@@ -81,6 +95,17 @@ export default function Entregas() {
       <p style={s.titulo}>📋 Minhas entregas</p>
       <p style={s.subtitulo}>Entregas concluídas nos últimos 30 dias</p>
 
+      {!carregando && !erro && entregas.length > 0 && (
+        <div style={s.filtros}>
+          {[['tudo', 'Tudo'], ['hoje', 'Hoje'], ['dia', 'Dia']].map(([v, l]) => (
+            <button key={v} onClick={() => setFiltro(v)} style={{ ...s.filtroBtn, ...(filtro === v ? s.filtroBtnAtivo : {}) }}>{l}</button>
+          ))}
+          {filtro === 'dia' && (
+            <input type="date" value={diaEspecifico} max={hojeChave} onChange={(e) => setDiaEspecifico(e.target.value)} style={s.dateInput} />
+          )}
+        </div>
+      )}
+
       {carregando ? (
         <p style={s.aviso}>Carregando...</p>
       ) : erro ? (
@@ -91,6 +116,8 @@ export default function Entregas() {
           <p style={s.aviso}>Nenhuma entrega concluída ainda.</p>
           <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>Suas entregas aparecerão aqui.</p>
         </div>
+      ) : grupos.length === 0 ? (
+        <p style={s.aviso}>Nenhuma entrega nesse período.</p>
       ) : (
         grupos.map(grupo => (
           <div key={grupo.chave} style={{ marginBottom: 24 }}>
@@ -138,6 +165,10 @@ const s = {
   titulo: { fontSize: 22, fontWeight: 700, color: '#1e293b', fontFamily: 'Sora, sans-serif', margin: '0 0 4px' },
   subtitulo: { fontSize: 13, color: '#64748b', margin: '0 0 20px' },
   aviso: { color: '#64748b', fontSize: 16, textAlign: 'center', marginTop: 8 },
+  filtros: { display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' },
+  filtroBtn: { background: '#fff', border: '1.5px solid rgba(26,171,207,0.25)', color: '#64748b', borderRadius: 10, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  filtroBtnAtivo: { background: 'rgba(26,171,207,0.12)', borderColor: '#1AABCF', color: '#1AABCF' },
+  dateInput: { border: '1.5px solid rgba(26,171,207,0.25)', borderRadius: 10, padding: '6px 10px', fontSize: 13, color: '#1e293b', fontFamily: 'Inter, sans-serif' },
   diaHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '10px 14px', background: 'rgba(26,171,207,0.07)', border: '1.5px solid rgba(26,171,207,0.25)', borderRadius: 12 },
   diaRotulo: { fontSize: 14, fontWeight: 700, color: '#1AABCF', fontFamily: 'Sora, sans-serif' },
   diaTotal: { fontSize: 16, fontWeight: 700, color: '#E8611A', margin: 0 },
