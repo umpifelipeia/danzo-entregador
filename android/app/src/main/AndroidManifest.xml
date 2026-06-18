@@ -41,7 +41,7 @@
         <!-- Canal padrão de notificação do FCM -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="danzo_pedidos"
+            android:value="danzo_pedidos_v2"
         />
     </application>
 

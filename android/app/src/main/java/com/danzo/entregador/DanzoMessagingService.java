@@ -25,7 +25,11 @@ import java.util.Map;
  */
 public class DanzoMessagingService extends FirebaseMessagingService {
 
-    public static final String CHANNEL_ID = "danzo_pedidos";
+    // v2: o canal antigo "danzo_pedidos" podia ter sido criado SEM som numa versão
+    // anterior, e canais de notificação NÃO mudam depois de criados. Trocar o id
+    // força a criação de um canal novo com som garantido (vibra mas não tocava).
+    public static final String CHANNEL_ID = "danzo_pedidos_v2";
+    public static final String CHANNEL_ID_LEGADO = "danzo_pedidos";
 
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
@@ -83,16 +87,18 @@ public class DanzoMessagingService extends FirebaseMessagingService {
     private void criarCanal() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        // Remove o canal antigo (que podia estar sem som) — o novo id garante o som.
+        try { nm.deleteNotificationChannel(CHANNEL_ID_LEGADO); } catch (Exception ignored) {}
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return;
 
         NotificationChannel canal = new NotificationChannel(
-                CHANNEL_ID, "Pedidos", NotificationManager.IMPORTANCE_HIGH);
+                CHANNEL_ID, "Novos pedidos", NotificationManager.IMPORTANCE_HIGH);
         canal.setDescription("Alertas de novos pedidos para entrega");
         canal.enableVibration(true);
         canal.setVibrationPattern(new long[]{0, 400, 200, 400});
 
         AudioAttributes attrs = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
         canal.setSound(somUri(), attrs);
