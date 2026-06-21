@@ -1,7 +1,7 @@
 // src/services/api.js
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://danzo-erp-production.up.railway.app'
+const API_URL = process.env.REACT_APP_API_URL || 'https://danzopdv.com.br'
 
 // Alerta em dev se a URL vier do fallback hardcoded
 if (process.env.NODE_ENV === 'development' && !process.env.REACT_APP_API_URL) {

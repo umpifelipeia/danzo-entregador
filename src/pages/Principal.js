@@ -141,7 +141,7 @@ export default function Principal() {
     let es = null;
     try {
       const token = localStorage.getItem('danzo_entregador_token');
-      const base = process.env.REACT_APP_API_URL || 'https://danzo-erp-production.up.railway.app';
+      const base = process.env.REACT_APP_API_URL || 'https://danzopdv.com.br';
       if (token) {
         es = new EventSource(`${base}/events?token=${encodeURIComponent(token)}`);
         es.addEventListener('pedidos', () => buscarPedidos());
